@@ -1,4 +1,4 @@
-package main
+package north
 
 type object struct {
 	Attributes      [6]byte

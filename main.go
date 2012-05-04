@@ -1,16 +1,10 @@
 package main
 
 import (
+	"bitbucket.org/zombiezen/gonorth/north"
 	"fmt"
 	"os"
 )
-
-type terminalUI struct { }
-
-func (t *terminalUI) Print(s string) error {
-	_, err := fmt.Print(s)
-	return err
-}
 
 func main() {
 	m, err := openStory(os.Args[1])
@@ -18,7 +12,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	m.ui = new(terminalUI)
 	fmt.Println("Version is:", m.Version())
 
 	for {
@@ -30,11 +23,18 @@ func main() {
 	}
 }
 
-func openStory(path string) (*Machine, error) {
+func openStory(path string) (*north.Machine, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return NewMachine(f)
+	return north.NewMachine(f, new(terminalUI))
+}
+
+type terminalUI struct { }
+
+func (t *terminalUI) Print(s string) error {
+	_, err := fmt.Print(s)
+	return err
 }

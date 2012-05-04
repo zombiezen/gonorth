@@ -1,4 +1,4 @@
-package main
+package north
 
 import (
 	"bytes"
@@ -57,13 +57,6 @@ func (f *stackFrame) PopLocal() (x Word) {
 	return
 }
 
-type Machine struct {
-	memory []byte
-	pc     Address
-	stack  []stackFrame
-	ui     UI
-}
-
 // A UI allows a Machine to interact with a user.
 type UI interface {
 	//HasStatusLine() bool
@@ -77,13 +70,32 @@ type UI interface {
 	Print(string) error
 }
 
+type Machine struct {
+	memory []byte
+	pc     Address
+	stack  []stackFrame
+	ui     UI
+}
+
 // NewMachine creates a new machine, loaded with the story from r.
-func NewMachine(r io.Reader) (*Machine, error) {
+func NewMachine(r io.Reader, ui UI) (*Machine, error) {
 	m := new(Machine)
 	if err := m.Load(r); err != nil {
 		return nil, err
 	}
+	m.SetUI(ui)
 	return m, nil
+}
+
+// UI returns m's user interface.
+func (m *Machine) UI() UI {
+	return m.ui
+}
+
+// SetUI sets m's user interface.
+func (m *Machine) SetUI(ui UI) {
+	m.ui = ui
+	m.copyUIFlags()
 }
 
 // Load starts the machine with a story file in r.
@@ -98,6 +110,8 @@ func (m *Machine) Load(r io.Reader) error {
 	// TODO: In version 6+, this is a routine, not a direct PC.
 	m.pc = m.initialPC()
 
+	m.copyUIFlags()
+
 	// Debug info
 	fmt.Printf("    Version: %d\n", m.Version())
 	fmt.Printf("         PC: %v\n", m.initialPC())
@@ -110,6 +124,10 @@ func (m *Machine) Load(r io.Reader) error {
 	fmt.Println()
 
 	return nil
+}
+
+func (m *Machine) copyUIFlags() {
+	// TODO
 }
 
 // memoryReader returns an io.Reader that starts reading at a.

@@ -130,6 +130,10 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		newVal := m.getVariable(uint8(ops[0])) + 1
 		m.setVariable(uint8(ops[0]), newVal)
 		return m.conditional(branch, int16(newVal) > int16(ops[1]))
+	case 0x06:
+		// jin
+		obj1 := m.loadObject(ops[0])
+		return m.conditional(branch, obj1.Parent == ops[1])
 	case 0x08:
 		// or
 		m.setVariable(storeVariable, ops[0]|ops[1])
@@ -138,11 +142,25 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		m.setVariable(storeVariable, ops[0]&ops[1])
 	case 0x0a:
 		// test_attr
-		obj := m.fetchObject(ops[0])
+		obj := m.loadObject(ops[0])
 		return m.conditional(branch, obj.Attr(uint8(ops[1])))
+	case 0x0b:
+		// set_attr
+		obj := m.loadObject(ops[0])
+		obj.SetAttr(uint8(ops[1]), true)
+		m.storeObject(ops[0], obj)
 	case 0x0d:
 		// store
 		m.setVariable(uint8(ops[0]), ops[1])
+	case 0x0e:
+		// insert_obj
+		o, d := m.loadObject(ops[0]), m.loadObject(ops[1])
+		// TODO: what if o.parent != 0?
+		o.Sibling = d.Child
+		o.Parent = ops[1]
+		d.Child = ops[0]
+		m.storeObject(ops[0], o)
+		m.storeObject(ops[1], d)
 	case 0x0f:
 		// loadw
 		m.setVariable(storeVariable, m.loadWord(Address(ops[0]+2*ops[1])))
@@ -150,6 +168,20 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		// loadb
 		// TODO: should this be sign extended?
 		m.setVariable(storeVariable, Word(m.memory[ops[0]+ops[1]]))
+	case 0x11:
+		// get_prop
+		obj := m.loadObject(ops[0])
+		p := obj.Property(m, uint8(ops[1]))
+		switch len(p) {
+		case 0:
+			m.setVariable(storeVariable, m.defaultPropertyValue(uint8(ops[1])))
+		case 1:
+			m.setVariable(storeVariable, Word(p[0]))
+		case 2:
+			m.setVariable(storeVariable, Word(p[0])<<8|Word(p[1]))
+		default:
+			return fmt.Errorf("Mismatched property size: vs. %d", len(p))
+		}
 	case 0x14:
 		// add
 		m.setVariable(storeVariable, Word(int16(ops[0])+int16(ops[1])))
@@ -177,6 +209,28 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 	case 0x0:
 		// jz
 		return m.conditional(in.branch, ops[0] == 0)
+	case 0x2:
+		// get_child
+		obj := m.loadObject(ops[0])
+		m.setVariable(in.storeVariable, obj.Child)
+		return m.conditional(in.branch, obj.Child != 0)
+	case 0x3:
+		// get_parent
+		obj := m.loadObject(ops[0])
+		m.setVariable(in.storeVariable, obj.Parent)
+	case 0x5:
+		// inc
+		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0])) + 1)
+	case 0x6:
+		// dec
+		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0])) - 1)
+	case 0x7:
+		// print_addr
+		s, err := m.loadString(Address(ops[0]), true)
+		if err != nil {
+			return err
+		}
+		return m.ui.Print(s)
 	case 0xb:
 		// ret
 		return m.routineReturn(ops[0])
@@ -206,6 +260,9 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 	case 0x7:
 		// restart
 		return ErrRestart
+	case 0x8:
+		// ret_popped
+		m.routineReturn(m.currStackFrame().PopLocal())
 	case 0xa:
 		// quit
 		return ErrQuit
@@ -239,14 +296,14 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		m.memory[Address(ops[0])+Address(2*ops[1])] = byte(ops[2])
 	case 0x3:
 		// put_prop
-		obj := m.fetchObject(ops[0])
+		obj := m.loadObject(ops[0])
 		p := obj.Property(m, uint8(ops[1]))
 		switch len(p) {
 		case 1:
-			p[0] = byte(ops[2]&0xff)
+			p[0] = byte(ops[2] & 0xff)
 		case 2:
-			p[0] = byte(ops[2]>>8)
-			p[1] = byte(ops[2]&0xff)
+			p[0] = byte(ops[2] >> 8)
+			p[1] = byte(ops[2] & 0xff)
 		default:
 			return fmt.Errorf("Mismatched property size: vs. %d", len(p))
 		}
@@ -260,6 +317,9 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 	case 0x6:
 		// print_num
 		return m.ui.Print(fmt.Sprint(int16(ops[0])))
+	case 0x8:
+		// push
+		m.currStackFrame().PushLocal(ops[0])
 	case 0x9:
 		// pull
 		if m.Version() < 6 {

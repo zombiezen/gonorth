@@ -483,9 +483,9 @@ func (si shortInstruction) String() string {
 		case 0x1:
 			name = "rfalse"
 		case 0x2:
-			name = "print"
+			return instructionString("print", si) + fmt.Sprintf(" %q", si.text)
 		case 0x3:
-			name = "print_ret"
+			return instructionString("print_ret", si) + fmt.Sprintf(" %q", si.text)
 		case 0x4:
 			name = "nop"
 		case 0x5:

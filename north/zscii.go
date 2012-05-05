@@ -70,6 +70,30 @@ func (zd *zsciiDecoder) ReadRune() (r rune, size int, err error) {
 		return
 	}
 
+	for z == 4 || z == 5 {
+		alphabet = int(z - 3)
+		z, err = zd.r.ReadByte()
+		size++
+		if err != nil {
+			return
+		}
+	}
+
+	if alphabet == 2 && z == 6 {
+		// 10-bit ZSCII character
+		var x1, x2 byte
+		size++
+		if x1, err = zd.r.ReadByte(); err != nil {
+			return
+		}
+		size++
+		if x2, err = zd.r.ReadByte(); err != nil {
+			return
+		}
+		r, err = zsciiLookup(uint16(x1)<<5|uint16(x2), zd.output)
+		return
+	}
+
 	switch z {
 	case 0:
 		r = ' '
@@ -93,30 +117,6 @@ func (zd *zsciiDecoder) ReadRune() (r rune, size int, err error) {
 		zd.abbv = []rune(s)
 		r, zd.abbv = zd.abbv[0], zd.abbv[1:]
 		return
-	case 4, 5:
-		for z == 4 || z == 5 {
-			alphabet = int(z - 3)
-			z, err = zd.r.ReadByte()
-			size++
-			if err != nil {
-				return
-			}
-		}
-
-		if alphabet == 2 && z == 6 {
-			// 10-bit ZSCII character
-			var x1, x2 byte
-			size++
-			if x1, err = zd.r.ReadByte(); err != nil {
-				return
-			}
-			size++
-			if x2, err = zd.r.ReadByte(); err != nil {
-				return
-			}
-			r, err = zsciiLookup(uint16(x1)<<5|uint16(x2), zd.output)
-			return
-		}
 	}
 
 	// Alphabet

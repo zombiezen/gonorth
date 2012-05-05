@@ -44,7 +44,7 @@ func TestZCharReader(t *testing.T) {
 	}
 }
 
-type mockUnabbreviater struct {}
+type mockUnabbreviater struct{}
 
 func (u mockUnabbreviater) Unabbreviate(entry int) (string, error) {
 	return fmt.Sprintf("entry%d", entry), nil
@@ -52,11 +52,11 @@ func (u mockUnabbreviater) Unabbreviate(entry int) (string, error) {
 
 func TestZSCIIDecoder(t *testing.T) {
 	tests := []struct {
-		IsOutput bool
+		IsOutput      bool
 		Unabbreviater Unabbreviater
-		Input    []byte
-		String   string
-		Err      error
+		Input         []byte
+		String        string
+		Err           error
 	}{
 		{true, nil, nil, "", io.EOF},
 		{true, nil, []byte{0x4, 0x4, 0x4}, "", io.EOF},

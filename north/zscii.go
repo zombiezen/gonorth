@@ -42,7 +42,7 @@ func NewZSCIIDecoder(r io.ByteReader, alphaset AlphabetSet, output bool, u Unabb
 type zsciiDecoder struct {
 	r        io.ByteReader
 	u        Unabbreviater
-	abbv []rune
+	abbv     []rune
 	alphaset AlphabetSet
 	output   bool
 	err      error

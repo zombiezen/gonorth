@@ -95,8 +95,7 @@ func (m *Machine) conditional(branch branchInfo, test bool) error {
 		case 1:
 			return m.routineReturn(1)
 		default:
-			// Purposefully allowing unsigned overflow.
-			m.pc += Address(branch.Offset() - 2)
+			m.pc += Address(branch.Offset()) - 2
 		}
 	}
 	return nil
@@ -169,11 +168,13 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		m.storeObject(ops[1], d)
 	case 0x0f:
 		// loadw
-		m.setVariable(storeVariable, m.loadWord(Address(ops[0]+2*ops[1])))
+		a := Address(ops[0]) + 2*Address(ops[1])
+		m.setVariable(storeVariable, m.loadWord(a))
 	case 0x10:
 		// loadb
-		// TODO: should this be sign extended?
-		m.setVariable(storeVariable, Word(m.memory[ops[0]+ops[1]]))
+		// TODO: should the value be sign extended?
+		a := Address(ops[0]) + Address(ops[1])
+		m.setVariable(storeVariable, Word(m.memory[a]))
 	case 0x11:
 		// get_prop
 		obj := m.loadObject(ops[0])
@@ -261,7 +262,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 	case 0xc:
 		// jump
 		// TODO: do we ever use 0 or 1 offsets here?
-		m.pc += Address(ops[0] - 2)
+		m.pc += Address(int16(ops[0])) - 2
 	default:
 		return errors.New("1OP opcode not implemented yet")
 	}
@@ -314,10 +315,12 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 	case 0x1:
 		// storew
-		m.storeWord(Address(ops[0])+Address(2*ops[1]), ops[2])
+		a := Address(ops[0])+2*Address(ops[1])
+		m.storeWord(a, ops[2])
 	case 0x2:
 		// storeb
-		m.memory[Address(ops[0])+Address(2*ops[1])] = byte(ops[2])
+		a := Address(ops[0])+2*Address(ops[1])
+		m.memory[a] = byte(ops[2])
 	case 0x3:
 		// put_prop
 		obj := m.loadObject(ops[0])

@@ -14,10 +14,10 @@ var (
 	ErrRestart = errors.New("Z-machine restart")
 )
 
-type Address uint16
+type Address int
 
 func (a Address) String() string {
-	return fmt.Sprintf("%04x", uint16(a))
+	return fmt.Sprintf("%05x", uint(a))
 }
 
 type Word uint16
@@ -236,12 +236,12 @@ func (m *Machine) fetchOperands(in instruction) []Word {
 func (m *Machine) packedAddress(p Word) Address {
 	switch m.Version() {
 	case 1, 2, 3:
-		return Address(2 * p)
+		return 2 * Address(p)
 	case 4, 5:
-		return Address(4 * p)
+		return 4 * Address(p)
 	// TODO: 6, 7
 	case 8:
-		return Address(8 * p)
+		return 8 * Address(p)
 	}
 	panic("Bad machine version for packed address!!")
 }
@@ -272,7 +272,7 @@ func (m *Machine) loadString(addr Address, output bool) (string, error) {
 }
 
 func (m *Machine) Unabbreviate(entry int) (string, error) {
-	entryWord := m.loadWord(m.abbreviationTableAddress() + Address(entry*2))
+	entryWord := m.loadWord(m.abbreviationTableAddress() + Address(entry)*2)
 	r, err := m.memoryReader(Address(entryWord) * 2)
 	if err != nil {
 		return "", err

@@ -99,3 +99,10 @@ func (t *terminalUI) Print(s string) error {
 	_, err := fmt.Print(s)
 	return err
 }
+
+func (t *terminalUI) Read(n int) ([]rune, error) {
+	// TODO: honor n
+	var s string
+	_, err := fmt.Scanf("%s", &s)
+	return []rune(s), err
+}

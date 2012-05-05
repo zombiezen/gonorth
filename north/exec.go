@@ -3,6 +3,7 @@ package north
 import (
 	"errors"
 	"fmt"
+	"unicode"
 )
 
 // Step executes the next opcode in the machine.
@@ -329,6 +330,46 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			p[1] = byte(ops[2] & 0xff)
 		default:
 			return fmt.Errorf("Mismatched property size: vs. %d", len(p))
+		}
+	case 0x4:
+		// read
+		// TODO: Versions 1-3 redisplay status line
+		var input []rune
+		if m.Version() <= 4 {
+			var err error
+			input, err = m.ui.Read(int(m.memory[Address(ops[0])]) + 1)
+			if err != nil {
+				return err
+			}
+
+			for i := range input {
+				// TODO: Ensure input is ZSCII-clean
+				input[i] = unicode.ToLower(input[i])
+				m.memory[Address(ops[0])+1+Address(i)] = byte(input[i])
+			}
+			m.memory[Address(ops[0])+1+Address(len(input))] = 0
+		} else {
+			// TODO
+			return errors.New("Read not implemented for version 5+")
+		}
+
+		if m.Version() < 5 || ops[1] != 0 {
+			dict, err := m.dictionary()
+			if err != nil {
+				return err
+			}
+			words := lex(input, dict)
+			maxWords := m.memory[ops[1]]
+			if len(words) > int(maxWords) {
+				words = words[:maxWords]
+			}
+			m.memory[Address(ops[1])+1] = byte(len(words))
+			base := Address(ops[1]) + 2
+			for i := range words {
+				m.storeWord(base+Address(i)*4, Word(words[i].Word))
+				m.memory[base+Address(i)*4+2] = byte(words[i].Start)
+				m.memory[base+Address(i)*4+3] = byte(words[i].End)
+			}
 		}
 	case 0x5:
 		// print_char

@@ -69,6 +69,7 @@ type UI interface {
 	//ScreenHeight() uint8
 
 	Print(string) error
+	Read(n int) ([]rune, error)
 }
 
 type Machine struct {

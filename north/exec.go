@@ -246,6 +246,15 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 			return err
 		}
 		return m.ui.Print(s)
+	case 0xa:
+		// print_obj
+		obj := m.loadObject(ops[0])
+		// TODO: check obj for nil
+		s, err := obj.FetchName(m)
+		if err != nil {
+			return err
+		}
+		return m.ui.Print(s)
 	case 0xb:
 		// ret
 		return m.routineReturn(ops[0])

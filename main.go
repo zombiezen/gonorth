@@ -2,14 +2,18 @@ package main
 
 import (
 	"bitbucket.org/zombiezen/gonorth/north"
+	"bufio"
 	"fmt"
 	"os"
 )
 
 var breakpoints []north.Address
 var m *north.Machine
+var in *bufio.Reader
 
 func main() {
+	in = bufio.NewReader(os.Stdin)
+
 	var err error
 	m, err = openStory(os.Args[1])
 	if err != nil {
@@ -31,20 +35,22 @@ func debugPrompt() error {
 	fmt.Print("\x1b[31m> \x1b[0m")
 
 	var command string
-	if _, err := fmt.Scan(&command); err != nil {
+	if _, err := fmt.Fscan(in, &command); err != nil {
 		return err
 	}
 
 	switch command {
 	case "n", "next":
+		in.ReadLine()
 		return m.Step()
 	case "b", "break":
 		var a north.Address
-		if _, err := fmt.Scanf("%x", &a); err != nil {
+		if _, err := fmt.Fscanf(in, "%x", &a); err != nil {
 			return err
 		}
 		breakpoints = append(breakpoints, a)
 	case "c", "cont", "continue":
+		in.ReadLine()
 	continueLoop:
 		for {
 			err := m.Step()
@@ -61,13 +67,13 @@ func debugPrompt() error {
 		m.PrintVariables()
 	case "w", "word":
 		var a north.Address
-		if _, err := fmt.Scanf("%x", &a); err != nil {
+		if _, err := fmt.Fscanf(in, "%x", &a); err != nil {
 			return err
 		}
 		fmt.Println(m.LoadWord(a))
 	case "s", "string":
 		var a north.Address
-		if _, err := fmt.Scanf("%x", &a); err != nil {
+		if _, err := fmt.Fscanf(in, "%x", &a); err != nil {
 			return err
 		}
 		if s, err := m.LoadString(a); err == nil {
@@ -101,8 +107,17 @@ func (t *terminalUI) Print(s string) error {
 }
 
 func (t *terminalUI) Read(n int) ([]rune, error) {
-	// TODO: honor n
-	var s string
-	_, err := fmt.Scanf("%s", &s)
-	return []rune(s), err
+	r := make([]rune, 0, n)
+	for {
+		rr, _, err := in.ReadRune()
+		if err != nil {
+			return r, err
+		} else if rr == '\n' {
+			break
+		}
+		if len(r) < n {
+			r = append(r, rr)
+		}
+	}
+	return r, nil
 }

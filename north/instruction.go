@@ -44,6 +44,7 @@ func (b branchInfo) String() string {
 }
 
 type instruction interface {
+	Name() string
 	Opcode() uint16
 	OpcodeNumber() uint8
 	NOperand() int
@@ -377,9 +378,9 @@ func decodeInstruction(r io.Reader, alphaset AlphabetSet, u Unabbreviater) (inst
 	return in, nil
 }
 
-func instructionString(name string, in instruction) string {
+func instructionString(in instruction) string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "%s\t", name)
+	fmt.Fprintf(&b, "%s\t", in.Name())
 	for i := 0; i < in.NOperand(); i++ {
 		if i > 0 {
 			fmt.Fprint(&b, " ")
@@ -401,8 +402,28 @@ func instructionString(name string, in instruction) string {
 	return b.String()
 }
 
-func instructionName2OP(n uint8) string {
-	switch n {
+func (li longInstruction) String() string {
+	return instructionString(li)
+}
+
+func (si shortInstruction) String() string {
+	s := instructionString(si)
+	if si.NOperand() == 0 && (si.OpcodeNumber() == 2 || si.OpcodeNumber() == 3) {
+		return s + fmt.Sprintf(" %q", si.text)
+	}
+	return s
+}
+
+func (vi variableInstruction) String() string {
+	return instructionString(vi)
+}
+
+func (ei extendedInstruction) String() string {
+	return instructionString(ei)
+}
+
+func (li longInstruction) Name() string {
+	switch li.OpcodeNumber() {
 	case 0x01:
 		return "je"
 	case 0x02:
@@ -460,235 +481,213 @@ func instructionName2OP(n uint8) string {
 	case 0x1c:
 		return "throw"
 	}
-	return ""
+	return fmt.Sprintf("2OP:%02x", li.OpcodeNumber())
 }
 
-func (li longInstruction) String() string {
-	name := instructionName2OP(li.OpcodeNumber())
-	if name == "" {
-		name = fmt.Sprintf("2OP:%02x", li.opcode)
-	}
-	return instructionString(name, li)
-}
-
-func (si shortInstruction) String() string {
-	var name string
+func (si shortInstruction) Name() string {
 	if si.NOperand() == 0 {
 		switch si.OpcodeNumber() {
 		case 0x0:
-			name = "rtrue"
+			return "rtrue"
 		case 0x1:
-			name = "rfalse"
+			return "rfalse"
 		case 0x2:
-			return instructionString("print", si) + fmt.Sprintf(" %q", si.text)
+			return "print"
 		case 0x3:
-			return instructionString("print_ret", si) + fmt.Sprintf(" %q", si.text)
+			return "print_ret"
 		case 0x4:
-			name = "nop"
+			return "nop"
 		case 0x5:
-			name = "save"
+			return "save"
 		case 0x6:
-			name = "restore"
+			return "restore"
 		case 0x7:
-			name = "restart"
+			return "restart"
 		case 0x8:
-			name = "ret_popped"
+			return "ret_popped"
 		case 0x9:
 			// TODO: Catch?
-			name = "pop"
+			return "pop"
 		case 0xa:
-			name = "quit"
+			return "quit"
 		case 0xb:
-			name = "new_line"
+			return "new_line"
 		case 0xc:
-			name = "show_status"
+			return "show_status"
 		case 0xd:
-			name = "verify"
+			return "verify"
 		case 0xf:
-			name = "piracy"
-		default:
-			name = fmt.Sprintf("0OP:%02x", si.opcode)
+			return "piracy"
 		}
-	} else {
-		switch si.OpcodeNumber() {
-		case 0x0:
-			name = "jz"
-		case 0x1:
-			name = "get_sibling"
-		case 0x2:
-			name = "get_child"
-		case 0x3:
-			name = "get_parent"
-		case 0x4:
-			name = "get_prop_len"
-		case 0x5:
-			name = "inc"
-		case 0x6:
-			name = "dec"
-		case 0x7:
-			name = "print_addr"
-		case 0x8:
-			name = "call_1s"
-		case 0x9:
-			name = "remove_obj"
-		case 0xa:
-			name = "print_obj"
-		case 0xb:
-			name = "ret"
-		case 0xc:
-			name = "jump"
-		case 0xd:
-			name = "print_paddr"
-		case 0xe:
-			name = "load"
-		case 0xf:
-			// TODO: call_1n
-			name = "not"
-		default:
-			name = fmt.Sprintf("1OP:%02x", si.opcode)
-		}
+		return fmt.Sprintf("0OP:%02x", si.opcode)
 	}
-	return instructionString(name, si)
+
+	switch si.OpcodeNumber() {
+	case 0x0:
+		return "jz"
+	case 0x1:
+		return "get_sibling"
+	case 0x2:
+		return "get_child"
+	case 0x3:
+		return "get_parent"
+	case 0x4:
+		return "get_prop_len"
+	case 0x5:
+		return "inc"
+	case 0x6:
+		return "dec"
+	case 0x7:
+		return "print_addr"
+	case 0x8:
+		return "call_1s"
+	case 0x9:
+		return "remove_obj"
+	case 0xa:
+		return "print_obj"
+	case 0xb:
+		return "ret"
+	case 0xc:
+		return "jump"
+	case 0xd:
+		return "print_paddr"
+	case 0xe:
+		return "load"
+	case 0xf:
+		// TODO: call_1n
+		return "not"
+	}
+	return fmt.Sprintf("1OP:%02x", si.opcode)
 }
 
-func (vi variableInstruction) String() string {
-	var name string
+func (vi variableInstruction) Name() string {
 	if vi.is2OP() {
-		name = instructionName2OP(uint8(vi.OpcodeNumber()))
-		if name == "" {
-			name = fmt.Sprintf("VAR:%02x", vi.opcode)
-		}
-	} else {
-		switch vi.OpcodeNumber() {
-		case 0x00:
-			name = "call_vs"
-		case 0x01:
-			name = "storew"
-		case 0x02:
-			name = "storeb"
-		case 0x03:
-			name = "put_prop"
-		case 0x04:
-			// TODO: aread
-			name = "sread"
-		case 0x05:
-			name = "print_char"
-		case 0x06:
-			name = "print_num"
-		case 0x07:
-			name = "random"
-		case 0x08:
-			name = "push"
-		case 0x09:
-			name = "pull"
-		case 0x0a:
-			name = "split_window"
-		case 0x0b:
-			name = "set_window"
-		case 0x0c:
-			name = "call_vs2"
-		case 0x0d:
-			name = "erase_window"
-		case 0x0e:
-			name = "erase_line"
-		case 0x0f:
-			name = "set_cursor"
-		case 0x10:
-			name = "get_cursor"
-		case 0x11:
-			name = "set_text_style"
-		case 0x12:
-			name = "buffer_mode"
-		case 0x13:
-			name = "output_stream"
-		case 0x14:
-			name = "input_stream"
-		case 0x15:
-			name = "sound_effect"
-		case 0x16:
-			name = "read_char"
-		case 0x17:
-			name = "scan_table"
-		case 0x18:
-			name = "not"
-		case 0x19:
-			name = "call_vn"
-		case 0x1a:
-			name = "call_vn2"
-		case 0x1b:
-			name = "tokenise"
-		case 0x1c:
-			name = "encode_text"
-		case 0x1d:
-			name = "copy_table"
-		case 0x1e:
-			name = "print_table"
-		case 0x1f:
-			name = "check_arg_count"
-		default:
-			name = fmt.Sprintf("VAR:%02x", vi.opcode)
-		}
+		return longInstruction{opcode: uint8(vi.OpcodeNumber())}.Name()
 	}
-	return instructionString(name, vi)
+	switch vi.OpcodeNumber() {
+	case 0x00:
+		return "call_vs"
+	case 0x01:
+		return "storew"
+	case 0x02:
+		return "storeb"
+	case 0x03:
+		return "put_prop"
+	case 0x04:
+		// TODO: sread/aread
+		return "read"
+	case 0x05:
+		return "print_char"
+	case 0x06:
+		return "print_num"
+	case 0x07:
+		return "random"
+	case 0x08:
+		return "push"
+	case 0x09:
+		return "pull"
+	case 0x0a:
+		return "split_window"
+	case 0x0b:
+		return "set_window"
+	case 0x0c:
+		return "call_vs2"
+	case 0x0d:
+		return "erase_window"
+	case 0x0e:
+		return "erase_line"
+	case 0x0f:
+		return "set_cursor"
+	case 0x10:
+		return "get_cursor"
+	case 0x11:
+		return "set_text_style"
+	case 0x12:
+		return "buffer_mode"
+	case 0x13:
+		return "output_stream"
+	case 0x14:
+		return "input_stream"
+	case 0x15:
+		return "sound_effect"
+	case 0x16:
+		return "read_char"
+	case 0x17:
+		return "scan_table"
+	case 0x18:
+		return "not"
+	case 0x19:
+		return "call_vn"
+	case 0x1a:
+		return "call_vn2"
+	case 0x1b:
+		return "tokenise"
+	case 0x1c:
+		return "encode_text"
+	case 0x1d:
+		return "copy_table"
+	case 0x1e:
+		return "print_table"
+	case 0x1f:
+		return "check_arg_count"
+	}
+	return fmt.Sprintf("VAR:%02x", vi.opcode)
 }
 
-func (ei extendedInstruction) String() string {
-	var name string
+func (ei extendedInstruction) Name() string {
 	switch ei.OpcodeNumber() {
 	case 0x00:
-		name = "save"
+		return "save"
 	case 0x01:
-		name = "restore"
+		return "restore"
 	case 0x02:
-		name = "log_shift"
+		return "log_shift"
 	case 0x03:
-		name = "art_shift"
+		return "art_shift"
 	case 0x04:
-		name = "set_font"
+		return "set_font"
 	case 0x05:
-		name = "draw_picture"
+		return "draw_picture"
 	case 0x06:
-		name = "picture_data"
+		return "picture_data"
 	case 0x07:
-		name = "erase_picture"
+		return "erase_picture"
 	case 0x08:
-		name = "set_margins"
+		return "set_margins"
 	case 0x09:
-		name = "save_undo"
+		return "save_undo"
 	case 0x0a:
-		name = "restore_undo"
+		return "restore_undo"
 	case 0x0b:
-		name = "print_unicode"
+		return "print_unicode"
 	case 0x0c:
-		name = "check_unicode"
+		return "check_unicode"
 	case 0x10:
-		name = "move_window"
+		return "move_window"
 	case 0x11:
-		name = "window_size"
+		return "window_size"
 	case 0x12:
-		name = "window_style"
+		return "window_style"
 	case 0x13:
-		name = "get_wind_prop"
+		return "get_wind_prop"
 	case 0x14:
-		name = "scroll_window"
+		return "scroll_window"
 	case 0x15:
-		name = "pop_stack"
+		return "pop_stack"
 	case 0x16:
-		name = "read_mouse"
+		return "read_mouse"
 	case 0x17:
-		name = "mouse_window"
+		return "mouse_window"
 	case 0x18:
-		name = "push_stack"
+		return "push_stack"
 	case 0x19:
-		name = "put_wind_prop"
+		return "put_wind_prop"
 	case 0x1a:
-		name = "print_form"
+		return "print_form"
 	case 0x1b:
-		name = "make_menu"
+		return "make_menu"
 	case 0x1c:
-		name = "picture_table"
-	default:
-		name = fmt.Sprintf("EXT:%02x", ei.opcode)
+		return "picture_table"
 	}
-	return instructionString(name, ei)
+	return fmt.Sprintf("EXT:%02x", ei.opcode)
 }

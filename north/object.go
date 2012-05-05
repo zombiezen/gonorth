@@ -41,10 +41,11 @@ func (o *object) Property(m *Machine, i uint8) []byte {
 	if m.Version() <= 3 {
 		for m.memory[a] != 0 {
 			size, n := m.memory[a]>>5+1, m.memory[a]&0x1f
+			a++
 			if n == i {
 				return m.memory[a : a+Address(size)]
 			}
-			a += 1 + Address(size)
+			a += Address(size)
 		}
 		return nil
 	}
@@ -77,7 +78,7 @@ func (o *object) Property(m *Machine, i uint8) []byte {
 // defaultPropertyValue fetches the value that should be returned when querying
 // property i on an object that doesn't have property i.
 func (m *Machine) defaultPropertyValue(i uint8) Word {
-	return m.loadWord(m.objectTableAddress() + Address(i)*2)
+	return m.loadWord(m.objectTableAddress() + Address(i-1)*2)
 }
 
 // loadObject returns the record for object i (1-based) in the object table.

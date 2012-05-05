@@ -54,20 +54,16 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 		Store:         true,
 		StoreVariable: ret,
 	}
+	m.pc = address + 1
 	if m.Version() <= 4 {
-		for i := 0; i < nlocals; i++ {
-			// XXX: Should this be in reverse order?
+		for i := range newFrame.Locals {
 			newFrame.Locals[i] = m.loadWord(address + 1 + Address(i)*2)
 		}
-		m.pc = address + 1 + Address(nlocals)*2
-	} else {
-		m.pc = address + 1
+		m.pc += Address(nlocals) * 2
 	}
-	for i := range args {
-		newFrame.Set(i+1, args[i])
-	}
+	copy(newFrame.Locals, args)
 	m.stack = append(m.stack, newFrame)
-	//fmt.Printf(">> ROUTINE %04x -> (%#02x): %d locals\n", m.pc, newFrame.StoreVariable, nlocals)
+	//fmt.Printf(">> ROUTINE %v -> ($%02x): %d locals\n", m.pc, newFrame.StoreVariable, nlocals)
 	return nil
 }
 
@@ -87,7 +83,7 @@ func (m *Machine) routineReturn(val Word) error {
 	if frame.Store {
 		m.setVariable(frame.StoreVariable, val)
 	}
-	//fmt.Printf("<< RETURN %v PC:%04x\n", val, m.pc)
+	//fmt.Printf("<< RETURN %v PC:%v\n", val, m.pc)
 	return nil
 }
 
@@ -134,6 +130,9 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		// jin
 		obj1 := m.loadObject(ops[0])
 		return m.conditional(branch, obj1.Parent == ops[1])
+	case 0x07:
+		// test
+		return m.conditional(branch, ops[0]&ops[1] == ops[1])
 	case 0x08:
 		// or
 		m.setVariable(storeVariable, ops[0]|ops[1])
@@ -220,10 +219,10 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		m.setVariable(in.storeVariable, obj.Parent)
 	case 0x5:
 		// inc
-		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0])) + 1)
+		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0]))+1)
 	case 0x6:
 		// dec
-		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0])) - 1)
+		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0]))-1)
 	case 0x7:
 		// print_addr
 		s, err := m.loadString(Address(ops[0]), true)
@@ -262,7 +261,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return ErrRestart
 	case 0x8:
 		// ret_popped
-		m.routineReturn(m.currStackFrame().PopLocal())
+		m.routineReturn(m.currStackFrame().Pop())
 	case 0xa:
 		// quit
 		return ErrQuit
@@ -319,11 +318,11 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		return m.ui.Print(fmt.Sprint(int16(ops[0])))
 	case 0x8:
 		// push
-		m.currStackFrame().PushLocal(ops[0])
+		m.currStackFrame().Push(ops[0])
 	case 0x9:
 		// pull
 		if m.Version() < 6 {
-			m.setVariable(uint8(ops[0]), m.currStackFrame().PopLocal())
+			m.setVariable(uint8(ops[0]), m.currStackFrame().Pop())
 		} else {
 			return errors.New("multiple stacks not supported yet")
 		}

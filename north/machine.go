@@ -30,30 +30,31 @@ func (w Word) String() string {
 type stackFrame struct {
 	Return Address
 	Locals []Word
+	Stack  []Word
 
 	Store         bool
 	StoreVariable uint8
 }
 
-// At returns the local at 1-based index i.
-func (f *stackFrame) At(i int) Word {
-	return f.Locals[len(f.Locals)-i]
+// LocalAt returns the local at 1-based index i.
+func (f *stackFrame) LocalAt(i int) Word {
+	return f.Locals[i-1]
 }
 
-// Set changes the local at 1-based index i.
-func (f *stackFrame) Set(i int, x Word) {
-	f.Locals[len(f.Locals)-i] = x
+// SetLocal changes the local at 1-based index i.
+func (f *stackFrame) SetLocal(i int, x Word) {
+	f.Locals[i-1] = x
 }
 
-// PushLocal adds a new local to the local stack.
-func (f *stackFrame) PushLocal(x Word) {
-	f.Locals = append(f.Locals, x)
+// Push adds a new value to the stack.
+func (f *stackFrame) Push(w Word) {
+	f.Stack = append(f.Stack, w)
 }
 
-// PopLocal removes the top local from the stack.
-func (f *stackFrame) PopLocal() (x Word) {
-	x = f.Locals[len(f.Locals)-1]
-	f.Locals = f.Locals[:len(f.Locals)-1]
+// Pop removes the top value from the stack.
+func (f *stackFrame) Pop() (w Word) {
+	w = f.Stack[len(f.Stack)-1]
+	f.Stack = f.Stack[:len(f.Stack)-1]
 	return
 }
 
@@ -95,7 +96,9 @@ func (m *Machine) UI() UI {
 // SetUI sets m's user interface.
 func (m *Machine) SetUI(ui UI) {
 	m.ui = ui
-	m.copyUIFlags()
+	if m.memory != nil {
+		m.copyUIFlags()
+	}
 }
 
 // Load starts the machine with a story file in r.
@@ -109,6 +112,10 @@ func (m *Machine) Load(r io.Reader) error {
 
 	// TODO: In version 6+, this is a routine, not a direct PC.
 	m.pc = m.initialPC()
+
+	// Standard revision number
+	// XXX: Change to 0x0100 when compliant
+	m.storeWord(0x32, 0x0000)
 
 	m.copyUIFlags()
 
@@ -127,7 +134,19 @@ func (m *Machine) Load(r io.Reader) error {
 }
 
 func (m *Machine) copyUIFlags() {
-	// TODO
+	if m.Version() > 3 {
+		// TODO
+		return
+	}
+
+	m.memory[1] &^= 0x70
+	// No status line (yet)
+	m.memory[1] |= 0x10
+}
+
+// PC returns the program counter.
+func (m *Machine) PC() Address {
+	return m.pc
 }
 
 // memoryReader returns an io.Reader that starts reading at a.
@@ -147,16 +166,33 @@ func (m *Machine) currStackFrame() *stackFrame {
 	return &m.stack[len(m.stack)-1]
 }
 
+func (m *Machine) PrintVariables() {
+	fmt.Printf("PC:  %v\n", m.pc)
+	for i, val := range m.currStackFrame().Locals {
+		fmt.Printf("$%02x: %v\n", i + 1, val)
+	}
+	for i, val := range m.currStackFrame().Stack {
+		fmt.Printf("S%2d: %v\n", i, val)
+	}
+}
+
+func (m *Machine) LoadWord(a Address) Word {
+	return m.loadWord(a)
+}
+
+func (m *Machine) LoadString(a Address) (string, error) {
+	return m.loadString(a, true)
+}
+
 // getVariable returns the value of a given variable.
 func (m *Machine) getVariable(v uint8) Word {
 	switch {
 	case v == 0:
 		// Pop from stack
-		val := m.currStackFrame().PopLocal()
-		return val
+		return m.currStackFrame().Pop()
 	case v < 0x10:
 		// Local variable
-		return m.currStackFrame().At(int(v))
+		return m.currStackFrame().LocalAt(int(v))
 	}
 	// Global variable
 	return m.loadWord(m.globalVariableTableAddress() + Address((v-0x10)*2))
@@ -167,10 +203,10 @@ func (m *Machine) setVariable(v uint8, val Word) {
 	switch {
 	case v == 0:
 		// Push to stack
-		m.currStackFrame().PushLocal(val)
+		m.currStackFrame().Push(val)
 	case v < 0x10:
 		// Local variable
-		m.currStackFrame().Set(int(v), val)
+		m.currStackFrame().SetLocal(int(v), val)
 	}
 	// Global variable
 	m.storeWord(m.globalVariableTableAddress()+Address((v-0x10)*2), val)

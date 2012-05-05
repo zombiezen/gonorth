@@ -6,8 +6,12 @@ import (
 	"os"
 )
 
+var breakpoints []north.Address
+var m *north.Machine
+
 func main() {
-	m, err := openStory(os.Args[1])
+	var err error
+	m, err = openStory(os.Args[1])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -15,12 +19,69 @@ func main() {
 	fmt.Println("Version is:", m.Version())
 
 	for {
-		err := m.Step()
+		err = debugPrompt()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "** Machine:", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}
+}
+
+func debugPrompt() error {
+	fmt.Print("\x1b[31m> \x1b[0m")
+
+	var command string
+	if _, err := fmt.Scan(&command); err != nil {
+		return err
+	}
+
+	switch command {
+	case "n", "next":
+		return m.Step()
+	case "b", "break":
+		var a north.Address
+		if _, err := fmt.Scanf("%x", &a); err != nil {
+			return err
+		}
+		breakpoints = append(breakpoints, a)
+	case "c", "cont", "continue":
+	continueLoop:
+		for {
+			err := m.Step()
+			if err != nil {
+				return err
+			}
+			for _, bp := range breakpoints {
+				if bp == m.PC() {
+					break continueLoop
+				}
+			}
+		}
+	case "p", "print":
+		m.PrintVariables()
+	case "w", "word":
+		var a north.Address
+		if _, err := fmt.Scanf("%x", &a); err != nil {
+			return err
+		}
+		fmt.Println(m.LoadWord(a))
+	case "s", "string":
+		var a north.Address
+		if _, err := fmt.Scanf("%x", &a); err != nil {
+			return err
+		}
+		if s, err := m.LoadString(a); err == nil {
+			fmt.Printf("%v: %q\n", a, s)
+		} else {
+			fmt.Println("Decode error:", err)
+		}
+	case "q", "quit", "exit":
+		os.Exit(0)
+	default:
+		fmt.Println("Bad command:", command)
+	}
+
+	return nil
 }
 
 func openStory(path string) (*north.Machine, error) {
@@ -32,7 +93,7 @@ func openStory(path string) (*north.Machine, error) {
 	return north.NewMachine(f, new(terminalUI))
 }
 
-type terminalUI struct { }
+type terminalUI struct{}
 
 func (t *terminalUI) Print(s string) error {
 	_, err := fmt.Print(s)

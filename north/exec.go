@@ -151,6 +151,11 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		obj := m.loadObject(ops[0])
 		obj.SetAttr(uint8(ops[1]), true)
 		m.storeObject(ops[0], obj)
+	case 0x0c:
+		// clear_attr
+		obj := m.loadObject(ops[0])
+		obj.SetAttr(uint8(ops[1]), false)
+		m.storeObject(ops[0], obj)
 	case 0x0d:
 		// store
 		m.setVariable(uint8(ops[0]), ops[1])

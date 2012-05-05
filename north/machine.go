@@ -169,7 +169,7 @@ func (m *Machine) currStackFrame() *stackFrame {
 func (m *Machine) PrintVariables() {
 	fmt.Printf("PC:  %v\n", m.pc)
 	for i, val := range m.currStackFrame().Locals {
-		fmt.Printf("$%02x: %v\n", i + 1, val)
+		fmt.Printf("$%02x: %v\n", i+1, val)
 	}
 	for i, val := range m.currStackFrame().Stack {
 		fmt.Printf("S%2d: %v\n", i, val)
@@ -184,6 +184,11 @@ func (m *Machine) LoadString(a Address) (string, error) {
 	return m.loadString(a, true)
 }
 
+// globalAddress returns of g (a 0-based index into the global table).
+func (m *Machine) globalAddress(g uint8) Address {
+	return m.globalVariableTableAddress() + Address(g)*2
+}
+
 // getVariable returns the value of a given variable.
 func (m *Machine) getVariable(v uint8) Word {
 	switch {
@@ -195,7 +200,7 @@ func (m *Machine) getVariable(v uint8) Word {
 		return m.currStackFrame().LocalAt(int(v))
 	}
 	// Global variable
-	return m.loadWord(m.globalVariableTableAddress() + Address((v-0x10)*2))
+	return m.loadWord(m.globalAddress(v - 0x10))
 }
 
 // setVariable changes the value of a given variable.
@@ -209,7 +214,7 @@ func (m *Machine) setVariable(v uint8, val Word) {
 		m.currStackFrame().SetLocal(int(v), val)
 	}
 	// Global variable
-	m.storeWord(m.globalVariableTableAddress()+Address((v-0x10)*2), val)
+	m.storeWord(m.globalAddress(v-0x10), val)
 }
 
 // fetchOperands returns the values of the operands.

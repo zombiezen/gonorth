@@ -28,7 +28,7 @@ func (w Word) String() string {
 
 // A stackFrame holds a routine call's data.
 type stackFrame struct {
-	Return Address
+	PC     Address
 	Locals []Word
 	Stack  []Word
 
@@ -73,7 +73,6 @@ type UI interface {
 
 type Machine struct {
 	memory []byte
-	pc     Address
 	stack  []stackFrame
 	ui     UI
 }
@@ -111,7 +110,7 @@ func (m *Machine) Load(r io.Reader) error {
 	m.stack = make([]stackFrame, 1)
 
 	// TODO: In version 6+, this is a routine, not a direct PC.
-	m.pc = m.initialPC()
+	m.stack[0].PC = m.initialPC()
 
 	// Standard revision number
 	// XXX: Change to 0x0100 when compliant
@@ -146,7 +145,7 @@ func (m *Machine) copyUIFlags() {
 
 // PC returns the program counter.
 func (m *Machine) PC() Address {
-	return m.pc
+	return m.currStackFrame().PC
 }
 
 // memoryReader returns an io.Reader that starts reading at a.
@@ -160,14 +159,11 @@ func (m *Machine) memoryReader(a Address) (io.ReadSeeker, error) {
 
 // currStackFrame returns the current stack frame, or nil if the stack is empty.
 func (m *Machine) currStackFrame() *stackFrame {
-	if len(m.stack) == 0 {
-		return nil
-	}
 	return &m.stack[len(m.stack)-1]
 }
 
 func (m *Machine) PrintVariables() {
-	fmt.Printf("PC:  %v\n", m.pc)
+	fmt.Printf("PC:  %v\n", m.currStackFrame().PC)
 	for i, val := range m.currStackFrame().Locals {
 		fmt.Printf("$%02x: %v\n", i+1, val)
 	}

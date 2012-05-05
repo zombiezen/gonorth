@@ -7,7 +7,7 @@ import (
 
 // Step executes the next opcode in the machine.
 func (m *Machine) Step() error {
-	r, err := m.memoryReader(m.pc)
+	r, err := m.memoryReader(m.PC())
 	if err != nil {
 		return err
 	}
@@ -16,9 +16,9 @@ func (m *Machine) Step() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\x1b[34m%v\x1b[33m\t%v\x1b[0m\n", m.pc, i)
+	fmt.Printf("\x1b[34m%v\x1b[33m\t%v\x1b[0m\n", m.PC(), i)
 	newPC, _ := r.Seek(0, 1)
-	m.pc = Address(newPC)
+	m.currStackFrame().PC = Address(newPC)
 
 	switch in := i.(type) {
 	case *longInstruction:
@@ -49,17 +49,16 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 		return errors.New("Routines have a maximum of 15 local variables")
 	}
 	newFrame := stackFrame{
-		Return:        m.pc,
+		PC:            address + 1,
 		Locals:        make([]Word, nlocals),
 		Store:         true,
 		StoreVariable: ret,
 	}
-	m.pc = address + 1
 	if m.Version() <= 4 {
 		for i := range newFrame.Locals {
 			newFrame.Locals[i] = m.loadWord(address + 1 + Address(i)*2)
 		}
-		m.pc += Address(nlocals) * 2
+		newFrame.PC += Address(nlocals) * 2
 	}
 	copy(newFrame.Locals, args)
 	m.stack = append(m.stack, newFrame)
@@ -77,7 +76,6 @@ func (m *Machine) routineReturn(val Word) error {
 	}
 
 	frame := m.currStackFrame()
-	m.pc = frame.Return
 	m.stack = m.stack[:len(m.stack)-1]
 	if frame.Store {
 		m.setVariable(frame.StoreVariable, val)
@@ -93,7 +91,7 @@ func (m *Machine) conditional(branch branchInfo, test bool) error {
 		case 1:
 			return m.routineReturn(1)
 		default:
-			m.pc += Address(branch.Offset()) - 2
+			m.currStackFrame().PC += Address(branch.Offset()) - 2
 		}
 	}
 	return nil
@@ -260,7 +258,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 	case 0xc:
 		// jump
 		// TODO: do we ever use 0 or 1 offsets here?
-		m.pc += Address(int16(ops[0])) - 2
+		m.currStackFrame().PC += Address(int16(ops[0])) - 2
 	default:
 		return errors.New("1OP opcode not implemented yet")
 	}

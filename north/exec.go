@@ -109,7 +109,14 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 	switch in.OpcodeNumber() {
 	case 0x01:
 		// je
-		return m.conditional(branch, int16(ops[0]) == int16(ops[1]))
+		var eq bool
+		for i := 1; i < len(ops); i++ {
+			if ops[0] == ops[i] {
+				eq = true
+				break
+			}
+		}
+		return m.conditional(branch, eq)
 	case 0x02:
 		// jl
 		return m.conditional(branch, int16(ops[0]) < int16(ops[1]))

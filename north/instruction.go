@@ -191,9 +191,6 @@ func (vi variableInstruction) is2OP() bool {
 }
 
 func (vi variableInstruction) NOperand() int {
-	if vi.is2OP() {
-		return 2
-	}
 	for i := uint(0); i < 8; i++ {
 		if operandType(vi.types>>(14-i*2)&0x3) == omittedOperand {
 			return int(i)

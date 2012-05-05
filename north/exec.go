@@ -63,7 +63,6 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 	}
 	copy(newFrame.Locals, args)
 	m.stack = append(m.stack, newFrame)
-	//fmt.Printf(">> ROUTINE %v -> ($%02x): %d locals\n", m.pc, newFrame.StoreVariable, nlocals)
 	return nil
 }
 
@@ -83,7 +82,6 @@ func (m *Machine) routineReturn(val Word) error {
 	if frame.Store {
 		m.setVariable(frame.StoreVariable, val)
 	}
-	//fmt.Printf("<< RETURN %v PC:%v\n", val, m.pc)
 	return nil
 }
 
@@ -315,11 +313,11 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 	case 0x1:
 		// storew
-		a := Address(ops[0])+2*Address(ops[1])
+		a := Address(ops[0]) + 2*Address(ops[1])
 		m.storeWord(a, ops[2])
 	case 0x2:
 		// storeb
-		a := Address(ops[0])+2*Address(ops[1])
+		a := Address(ops[0]) + 2*Address(ops[1])
 		m.memory[a] = byte(ops[2])
 	case 0x3:
 		// put_prop

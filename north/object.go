@@ -1,9 +1,5 @@
 package north
 
-import (
-	"fmt"
-)
-
 type object struct {
 	Attributes   [6]byte
 	Parent       Word
@@ -81,7 +77,6 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 // property i.
 func (o *object) Property(m *Machine, i uint8) []byte {
 	a, size := o.propLoc(m, i)
-	fmt.Println("propLoc:", a, size)
 	if a == 0 {
 		return nil
 	}

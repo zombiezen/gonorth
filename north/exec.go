@@ -282,6 +282,12 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 	case 0x2:
 		// print
 		return m.ui.Print(in.text)
+	case 0x3:
+		// print_ret
+		if err := m.ui.Print(in.text); err != nil {
+			return err
+		}
+		return m.routineReturn(1)
 	case 0x4:
 		// nop
 	case 0x7:

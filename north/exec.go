@@ -188,6 +188,10 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		default:
 			return fmt.Errorf("Mismatched property size: vs. %d", len(p))
 		}
+	case 0x12:
+		// get_prop_addr
+		obj := m.loadObject(ops[0])
+		m.setVariable(storeVariable, Word(obj.PropertyAddress(m, uint8(ops[1]))))
 	case 0x14:
 		// add
 		m.setVariable(storeVariable, Word(int16(ops[0])+int16(ops[1])))
@@ -215,6 +219,11 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 	case 0x0:
 		// jz
 		return m.conditional(in.branch, ops[0] == 0)
+	case 0x1:
+		// get_sibling
+		obj := m.loadObject(ops[0])
+		m.setVariable(in.storeVariable, obj.Sibling)
+		return m.conditional(in.branch, obj.Sibling != 0)
 	case 0x2:
 		// get_child
 		obj := m.loadObject(ops[0])

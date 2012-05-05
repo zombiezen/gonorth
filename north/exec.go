@@ -236,6 +236,17 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		// get_parent
 		obj := m.loadObject(ops[0])
 		m.setVariable(in.storeVariable, obj.Parent)
+	case 0x4:
+		// get_prop_len
+		// Sadly, the operand is the address of the property data, so we have to dupe work to extract the length. Le sigh.
+		var size uint8
+		if m.Version() <= 3 {
+			size = m.memory[Address(ops[0])-1]>>5 + 1
+		} else {
+			// TODO
+			return errors.New("Version 4+ get_prop_len not implemented yet")
+		}
+		m.setVariable(in.storeVariable, Word(size))
 	case 0x5:
 		// inc
 		m.setVariable(uint8(ops[0]), m.getVariable(uint8(ops[0]))+1)

@@ -454,6 +454,14 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 	case 0x6:
 		// print_num
 		return m.ui.Print(fmt.Sprint(int16(ops[0])))
+	case 0x7:
+		// random
+		if ops[0] == 0 {
+			m.seed()
+			m.setVariable(in.storeVariable, 0)
+		} else {
+			m.setVariable(in.storeVariable, m.random(ops[0]))
+		}
 	case 0x8:
 		// push
 		m.currStackFrame().Push(ops[0])

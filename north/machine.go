@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
+	"time"
 )
 
 // Normal termination by z-machine story.
@@ -76,6 +78,7 @@ type Machine struct {
 	memory []byte
 	stack  []stackFrame
 	ui     UI
+	rand   *rand.Rand
 }
 
 // NewMachine creates a new machine, loaded with the story from r.
@@ -109,6 +112,7 @@ func (m *Machine) Load(r io.Reader) error {
 	}
 	m.memory = newMemory
 	m.stack = make([]stackFrame, 1)
+	m.seed()
 
 	// TODO: In version 6+, this is a routine, not a direct PC.
 	m.stack[0].PC = m.initialPC()
@@ -246,6 +250,16 @@ func (m *Machine) packedAddress(p Word) Address {
 // Version returns the version of the machine, defined in the story file.
 func (m *Machine) Version() byte {
 	return m.memory[0]
+}
+
+// seed restarts the random generator with the current time as a seed.
+func (m *Machine) seed() {
+	m.rand = rand.New(rand.NewSource(time.Now().Unix()))
+}
+
+// random returns the next random number.
+func (m *Machine) random(s Word) Word {
+	return Word(m.rand.Uint32()%uint32(s) + 1)
 }
 
 func (m *Machine) loadWord(a Address) Word {

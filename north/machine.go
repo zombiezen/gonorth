@@ -62,16 +62,13 @@ func (f *stackFrame) Pop() (w Word) {
 
 // A UI allows a Machine to interact with a user.
 type UI interface {
-	//HasStatusLine() bool
-	//HasScreenSplitting() bool
-	//HasDefaultVariablePitch() bool
-	//HasColor() bool
-
-	//ScreenWidth() uint8
-	//ScreenHeight() uint8
-
 	Print(string) error
 	Read(n int) ([]rune, error)
+}
+
+// StatusLiner is a UI that can display a status line.
+type StatusLiner interface {
+	StatusLine(left, right string) error
 }
 
 type Machine struct {
@@ -144,8 +141,41 @@ func (m *Machine) copyUIFlags() {
 	}
 
 	m.memory[1] &^= 0x70
-	// No status line (yet)
-	m.memory[1] |= 0x10
+	if _, ok := m.ui.(StatusLiner); !ok {
+		m.memory[1] |= 0x10
+	}
+}
+
+func (m *Machine) refreshStatusLine() error {
+	liner, ok := m.ui.(StatusLiner)
+	if !ok {
+		return nil
+	}
+
+	isTime := m.memory[1]&0x02 != 0
+	name, err := m.loadObject(m.getVariable(0x10)).FetchName(m)
+	if err != nil {
+		return err
+	}
+
+	var right string
+	if isTime {
+		h, m := int16(m.getVariable(0x11)), int16(m.getVariable(0x12))
+		switch {
+		case h == 0:
+			right = fmt.Sprintf("12:%02d AM", m)
+		case h < 12:
+			right = fmt.Sprintf("%2d:%02d AM", h, m)
+		case h == 12:
+			right = fmt.Sprintf("12:%02d PM", m)
+		default:
+			right = fmt.Sprintf("%2d:%02d PM", h-12, m)
+		}
+	} else {
+		right = fmt.Sprintf("%3d/%4d", int16(m.getVariable(0x11)), int16(m.getVariable(0x12)))
+	}
+
+	return liner.StatusLine(name, right)
 }
 
 // PC returns the program counter.

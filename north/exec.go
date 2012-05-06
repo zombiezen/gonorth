@@ -354,7 +354,9 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return m.ui.Print("\n")
 	case 0xc:
 		// show_status
-		// This acts as a nop
+		if m.Version() <= 3 {
+			m.refreshStatusLine()
+		}
 	case 0xd:
 		// verify
 		// TODO: actually perform verification
@@ -402,7 +404,9 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 	case 0x4:
 		// read
-		// TODO: Versions 1-3 redisplay status line
+		if m.Version() <= 3 {
+			m.refreshStatusLine()
+		}
 		var input []rune
 		if m.Version() <= 4 {
 			var err error

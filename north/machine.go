@@ -121,17 +121,6 @@ func (m *Machine) Load(r io.Reader) error {
 
 	m.copyUIFlags()
 
-	// Debug info
-	fmt.Printf("    Version: %d\n", m.Version())
-	fmt.Printf("         PC: %v\n", m.initialPC())
-	fmt.Printf("Stat Memory: %v\n", m.staticMemoryBase())
-	fmt.Printf("High Memory: %v\n", m.highMemoryBase())
-	fmt.Printf(" Dictionary: %v\n", m.dictionaryAddress())
-	fmt.Printf("  Obj Table: %v\n", m.objectTableAddress())
-	fmt.Printf(" Glob Table: %v\n", m.globalVariableTableAddress())
-	fmt.Printf("Abbrv Table: %v\n", m.abbreviationTableAddress())
-	fmt.Println()
-
 	return nil
 }
 

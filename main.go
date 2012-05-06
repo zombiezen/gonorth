@@ -33,9 +33,8 @@ func main() {
 
 	if !*debug {
 		for {
-			err = m.Step()
+			err = m.Run()
 			switch err {
-			case nil:
 			case io.EOF, north.ErrQuit:
 				os.Exit(0)
 			case north.ErrRestart:

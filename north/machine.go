@@ -102,6 +102,17 @@ func (m *Machine) SetUI(ui UI) {
 	}
 }
 
+// Run executes the story until an error occurs.
+func (m *Machine) Run() error {
+	for {
+		err := m.Step()
+		if err != nil {
+			return err
+		}
+	}
+	panic("never reached")
+}
+
 // Load starts the machine with a story file in r.
 func (m *Machine) Load(r io.Reader) error {
 	newMemory, err := ioutil.ReadAll(r)

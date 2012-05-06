@@ -6,6 +6,7 @@ type dictionary struct {
 	Count      Word
 	Base       Address
 	Words      map[string]Address
+	WordSize   int
 }
 
 func (m *Machine) dictionary() (d dictionary, err error) {
@@ -23,6 +24,11 @@ func (m *Machine) dictionary() (d dictionary, err error) {
 	d.Count = m.loadWord(d.Base + 1)
 	d.Base += 3
 	d.Words = make(map[string]Address, d.Count)
+	if m.Version() <= 3 {
+		d.WordSize = 6
+	} else {
+		d.WordSize = 9
+	}
 
 	for i := 0; i < int(d.Count); i++ {
 		var s string
@@ -49,6 +55,9 @@ func lex(input []rune, dict dictionary) []lexWord {
 		result[i].Start = indices[i][0]
 		result[i].End = indices[i][1]
 		word := string(input[indices[i][0]:indices[i][1]])
+		if len(word) > dict.WordSize {
+			word = word[:dict.WordSize]
+		}
 		result[i].Word = dict.Words[word]
 	}
 	return result

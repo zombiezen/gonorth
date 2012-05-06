@@ -2,6 +2,7 @@ package north
 
 import (
 	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -134,6 +135,18 @@ func (m *Machine) Load(r io.Reader) error {
 	return nil
 }
 
+// SaveStack encodes the stack to w.
+func (m *Machine) SaveStack(w io.Writer) error {
+	e := gob.NewEncoder(w)
+	return e.Encode(m.stack)
+}
+
+// RestoreStack decodes the stack from r.
+func (m *Machine) RestoreStack(r io.Reader) error {
+	d := gob.NewDecoder(r)
+	return d.Decode(&m.stack)
+}
+
 func (m *Machine) copyUIFlags() {
 	if m.Version() > 3 {
 		// TODO
@@ -183,8 +196,8 @@ func (m *Machine) PC() Address {
 	return m.currStackFrame().PC
 }
 
-// memoryReader returns an io.Reader that starts reading at a.
-func (m *Machine) memoryReader(a Address) (io.ReadSeeker, error) {
+// MemoryReader returns an io.Reader that starts reading at a.
+func (m *Machine) MemoryReader(a Address) (io.ReadSeeker, error) {
 	r := bytes.NewReader(m.memory)
 	if _, err := r.Seek(int64(a), 0); err != nil {
 		return nil, err
@@ -311,7 +324,7 @@ func (m *Machine) storeWord(a Address, w Word) {
 // loadString decodes a ZSCII string at address addr.  See NewZSCIIDecoder for
 // the output parameter.
 func (m *Machine) loadString(addr Address, output bool) (string, error) {
-	r, err := m.memoryReader(addr)
+	r, err := m.MemoryReader(addr)
 	if err != nil {
 		return "", err
 	}
@@ -321,7 +334,7 @@ func (m *Machine) loadString(addr Address, output bool) (string, error) {
 
 func (m *Machine) Unabbreviate(entry int) (string, error) {
 	entryWord := m.loadWord(m.abbreviationTableAddress() + Address(entry)*2)
-	r, err := m.memoryReader(Address(entryWord) * 2)
+	r, err := m.MemoryReader(Address(entryWord) * 2)
 	if err != nil {
 		return "", err
 	}

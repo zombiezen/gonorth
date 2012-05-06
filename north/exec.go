@@ -28,7 +28,7 @@ func (m *Machine) Step() (err error) {
 		}
 	}(m.PC())
 
-	r, err := m.memoryReader(m.PC())
+	r, err := m.MemoryReader(m.PC())
 	if err != nil {
 		return err
 	}

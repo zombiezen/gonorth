@@ -310,7 +310,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		return m.ui.Print(s)
 	case 0xe:
 		// load
-		m.setVariable(in.storeVariable, ops[0])
+		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
 	default:
 		return instructionError{Instruction: in, Err: errors.New("1OP opcode not implemented yet")}
 	}

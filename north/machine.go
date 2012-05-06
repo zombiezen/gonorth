@@ -185,6 +185,13 @@ func (m *Machine) LoadString(a Address) (string, error) {
 	return m.loadString(a, true)
 }
 
+func (m *Machine) Variable(v uint8) Word {
+	if v == 0 {
+		return 0
+	}
+	return m.getVariable(v)
+}
+
 // globalAddress returns of g (a 0-based index into the global table).
 func (m *Machine) globalAddress(g uint8) Address {
 	return m.globalVariableTableAddress() + Address(g)*2

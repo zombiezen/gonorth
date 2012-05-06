@@ -65,6 +65,12 @@ func debugPrompt() error {
 		}
 	case "p", "print":
 		m.PrintVariables()
+	case "v", "var", "variable":
+		var v uint8
+		if _, err := fmt.Fscanf(in, "%x", &v); err != nil {
+			return err
+		}
+		fmt.Printf("$%02x: %v\n", v, m.Variable(v))
 	case "w", "word":
 		var a north.Address
 		if _, err := fmt.Fscanf(in, "%x", &a); err != nil {

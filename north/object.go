@@ -89,7 +89,6 @@ func (o *object) NextProperty(m *Machine, i uint8) (uint8, error) {
 	if a == 0 {
 		return 0, errors.New("trying to find next on non-existent property")
 	}
-	a += Address(size)
 	return m.memory[a+Address(size)] & 0x1f, nil
 }
 

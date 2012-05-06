@@ -3,7 +3,9 @@ package main
 import (
 	"bitbucket.org/zombiezen/gonorth/north"
 	"bufio"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -14,19 +16,47 @@ var in *bufio.Reader
 func main() {
 	in = bufio.NewReader(os.Stdin)
 
+	debug := flag.Bool("debug", false, "Run story in debugger")
+	flag.Parse()
+
+	if flag.NArg() == 0 {
+		fmt.Println("usage: gonorth [options] FILE")
+		os.Exit(2)
+	}
+
 	var err error
-	m, err = openStory(os.Args[1])
+	m, err = openStory(flag.Arg(0))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println("Version is:", m.Version())
 
-	for {
-		err = debugPrompt()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+	if !*debug {
+		for {
+			err = m.Step()
+			switch err {
+			case nil:
+			case io.EOF, north.ErrQuit:
+				os.Exit(0)
+			case north.ErrRestart:
+				m, err = openStory(flag.Arg(0))
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+			default:
+				fmt.Fprintln(os.Stderr, "** Internal Error:", err)
+				os.Exit(1)
+			}
+		}
+	} else {
+		fmt.Println("Version is:", m.Version())
+		for {
+			err = debugPrompt()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 		}
 	}
 }

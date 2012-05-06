@@ -276,6 +276,16 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		// jump
 		// TODO: do we ever use 0 or 1 offsets here?
 		m.currStackFrame().PC += Address(int16(ops[0])) - 2
+	case 0xd:
+		// print_paddr
+		s, err := m.loadString(m.packedAddress(ops[0]), true)
+		if err != nil {
+			return err
+		}
+		return m.ui.Print(s)
+	case 0xe:
+		// load
+		m.setVariable(in.storeVariable, ops[0])
 	default:
 		return errors.New("1OP opcode not implemented yet")
 	}

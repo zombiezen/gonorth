@@ -330,7 +330,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return m.ui.Print(in.text)
 	case 0x3:
 		// print_ret
-		if err := m.ui.Print(in.text); err != nil {
+		if err := m.ui.Print(in.text + "\n"); err != nil {
 			return err
 		}
 		return m.routineReturn(1)

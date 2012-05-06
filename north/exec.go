@@ -181,13 +181,7 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		m.setVariable(uint8(ops[0]), ops[1])
 	case 0x0e:
 		// insert_obj
-		o, d := m.loadObject(ops[0]), m.loadObject(ops[1])
-		// TODO: what if o.parent != 0?
-		o.Sibling = d.Child
-		o.Parent = ops[1]
-		d.Child = ops[0]
-		m.storeObject(ops[0], o)
-		m.storeObject(ops[1], d)
+		m.insertObject(ops[0], ops[1])
 	case 0x0f:
 		// loadw
 		a := Address(ops[0]) + 2*Address(ops[1])
@@ -215,6 +209,14 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		// get_prop_addr
 		obj := m.loadObject(ops[0])
 		m.setVariable(storeVariable, Word(obj.PropertyAddress(m, uint8(ops[1]))))
+	case 0x13:
+		// get_next_prop
+		obj := m.loadObject(ops[0])
+		np, err := obj.NextProperty(m, uint8(ops[1]))
+		if err != nil {
+			return err
+		}
+		m.setVariable(storeVariable, Word(np))
 	case 0x14:
 		// add
 		m.setVariable(storeVariable, Word(int16(ops[0])+int16(ops[1])))
@@ -280,6 +282,9 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 			return err
 		}
 		return m.ui.Print(s)
+	case 0x9:
+		// remove_obj
+		m.removeObject(ops[0])
 	case 0xa:
 		// print_obj
 		obj := m.loadObject(ops[0])
@@ -337,6 +342,10 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 	case 0x8:
 		// ret_popped
 		m.routineReturn(m.currStackFrame().Pop())
+	case 0x9:
+		// pop
+		// TODO: v5+ catch
+		m.currStackFrame().Pop()
 	case 0xa:
 		// quit
 		return ErrQuit
@@ -346,6 +355,14 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 	case 0xc:
 		// show_status
 		// This acts as a nop
+	case 0xd:
+		// verify
+		// TODO: actually perform verification
+		return m.conditional(in.branch, true)
+	case 0xf:
+		// piracy
+		// ARR NO PIRATES HERE
+		return m.conditional(in.branch, true)
 	default:
 		return instructionError{Instruction: in, Err: errors.New("0OP opcode not implemented yet")}
 	}

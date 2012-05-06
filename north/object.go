@@ -1,5 +1,9 @@
 package north
 
+import (
+	"errors"
+)
+
 type object struct {
 	Attributes   [6]byte
 	Parent       Word
@@ -72,6 +76,23 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 	return 0, 0
 }
 
+// NextProperty returns the number of the next property in the object. If i is
+// 0, then the first property number is returned.
+func (o *object) NextProperty(m *Machine, i uint8) (uint8, error) {
+	if i == 0 {
+		// First property
+		a := o.PropertyBase + 1 + Address(m.memory[o.PropertyBase])*2
+		return m.memory[a] & 0x1f, nil
+	}
+
+	a, size := o.propLoc(m, i)
+	if a == 0 {
+		return 0, errors.New("trying to find next on non-existent property")
+	}
+	a += Address(size)
+	return m.memory[a+Address(size)] & 0x1f, nil
+}
+
 // Property retrieves an object's property i (1-based) from m's memory.  The
 // returned slice points to m's memory, or nil if the object doesn't have
 // property i.
@@ -133,5 +154,40 @@ func (m *Machine) storeObject(i Word, o *object) {
 		m.storeWord(base+8, o.Sibling)
 		m.storeWord(base+10, o.Child)
 		m.storeWord(base+12, Word(o.PropertyBase))
+	}
+}
+
+func (m *Machine) insertObject(i, parent Word) {
+	m.removeObject(i)
+	obj := m.loadObject(i)
+	parentObj := m.loadObject(parent)
+	obj.Sibling = parentObj.Child
+	obj.Parent = parent
+	parentObj.Child = i
+	m.storeObject(i, obj)
+	m.storeObject(parent, parentObj)
+}
+
+func (m *Machine) removeObject(i Word) {
+	obj := m.loadObject(i)
+	if obj.Parent != 0 {
+		par := m.loadObject(obj.Parent)
+		if par.Child == i {
+			// First child
+			par.Child = obj.Sibling
+			m.storeObject(obj.Parent, par)
+		} else {
+			// Find previous child and update sibling pointer
+			j := par.Child
+			curr := m.loadObject(j)
+			for curr.Sibling != i {
+				j = curr.Sibling
+				curr = m.loadObject(j)
+			}
+			curr.Sibling = obj.Sibling
+			m.storeObject(j, curr)
+		}
+		obj.Parent = 0
+		m.storeObject(i, obj)
 	}
 }

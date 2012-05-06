@@ -359,7 +359,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		var input []rune
 		if m.Version() <= 4 {
 			var err error
-			input, err = m.ui.Read(int(m.memory[Address(ops[0])]) + 1)
+			input, err = m.ui.Read(int(m.memory[Address(ops[0])]) - 1)
 			if err != nil {
 				return err
 			}
@@ -389,8 +389,12 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			base := Address(ops[1]) + 2
 			for i := range words {
 				m.storeWord(base+Address(i)*4, Word(words[i].Word))
-				m.memory[base+Address(i)*4+2] = byte(words[i].Start)
-				m.memory[base+Address(i)*4+3] = byte(words[i].End)
+				m.memory[base+Address(i)*4+2] = byte(words[i].End - words[i].Start)
+				if m.Version() <= 4 {
+					m.memory[base+Address(i)*4+3] = byte(words[i].Start + 1)
+				} else {
+					m.memory[base+Address(i)*4+3] = byte(words[i].Start + 2)
+				}
 			}
 		}
 	case 0x5:

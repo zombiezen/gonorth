@@ -51,7 +51,6 @@ func debugPrompt() error {
 		breakpoints = append(breakpoints, a)
 	case "c", "cont", "continue":
 		in.ReadLine()
-	continueLoop:
 		for {
 			err := m.Step()
 			if err != nil {
@@ -59,7 +58,7 @@ func debugPrompt() error {
 			}
 			for _, bp := range breakpoints {
 				if bp == m.PC() {
-					break continueLoop
+					return nil
 				}
 			}
 		}

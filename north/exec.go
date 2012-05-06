@@ -6,8 +6,28 @@ import (
 	"unicode"
 )
 
+type instructionError struct {
+	PC          Address
+	Instruction instruction
+	Err         error
+}
+
+func (e instructionError) Error() string {
+	return fmt.Sprintf("%v @ %v: %v", e.Instruction, e.PC, e.Err)
+}
+
 // Step executes the next opcode in the machine.
-func (m *Machine) Step() error {
+func (m *Machine) Step() (err error) {
+	defer func(pc Address) {
+		if err != nil {
+			// XXX: What if we messed with the state already (esp. stack)?
+			m.currStackFrame().PC = pc
+			if ierr, ok := err.(instructionError); ok {
+				err = instructionError{pc, ierr.Instruction, ierr.Err}
+			}
+		}
+	}(m.PC())
+
 	r, err := m.memoryReader(m.PC())
 	if err != nil {
 		return err
@@ -15,9 +35,9 @@ func (m *Machine) Step() error {
 	// TODO: Get story alphabet set
 	i, err := decodeInstruction(r, StandardAlphabetSet, m)
 	if err != nil {
-		return err
+		return instructionError{Err: err}
 	}
-	fmt.Printf("\x1b[34m%v\x1b[33m\t%v\x1b[0m\n", m.PC(), i)
+	//fmt.Printf("\x1b[34m%v\x1b[33m\t%v\x1b[0m\n", m.PC(), i)
 	newPC, _ := r.Seek(0, 1)
 	m.currStackFrame().PC = Address(newPC)
 
@@ -37,7 +57,7 @@ func (m *Machine) Step() error {
 			return m.stepVariableInstruction(in)
 		}
 	}
-	return errors.New("Instruction type not implemented yet")
+	return instructionError{Instruction: i, Err: errors.New("Instruction type not implemented yet")}
 }
 
 func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
@@ -211,7 +231,7 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		// mod
 		m.setVariable(storeVariable, Word(int16(ops[0])%int16(ops[1])))
 	default:
-		return errors.New("2OP opcode not implemented yet")
+		return instructionError{Instruction: in, Err: errors.New("2OP opcode not implemented yet")}
 	}
 	return nil
 }
@@ -244,7 +264,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 			size = m.memory[Address(ops[0])-1]>>5 + 1
 		} else {
 			// TODO
-			return errors.New("Version 4+ get_prop_len not implemented yet")
+			return instructionError{Instruction: in, Err: errors.New("Version 4+ get_prop_len not implemented yet")}
 		}
 		m.setVariable(in.storeVariable, Word(size))
 	case 0x5:
@@ -287,7 +307,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		// load
 		m.setVariable(in.storeVariable, ops[0])
 	default:
-		return errors.New("1OP opcode not implemented yet")
+		return instructionError{Instruction: in, Err: errors.New("1OP opcode not implemented yet")}
 	}
 	return nil
 }
@@ -327,7 +347,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		// show_status
 		// This acts as a nop
 	default:
-		return errors.New("0OP opcode not implemented yet")
+		return instructionError{Instruction: in, Err: errors.New("0OP opcode not implemented yet")}
 	}
 	return nil
 }
@@ -382,7 +402,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			m.memory[Address(ops[0])+1+Address(len(input))] = 0
 		} else {
 			// TODO
-			return errors.New("Read not implemented for version 5+")
+			return instructionError{Instruction: in, Err: errors.New("Read not implemented for version 5+")}
 		}
 
 		if m.Version() < 5 || ops[1] != 0 {
@@ -428,7 +448,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			return errors.New("multiple stacks not supported yet")
 		}
 	default:
-		return errors.New("VAR opcode not implemented yet")
+		return instructionError{Instruction: in, Err: errors.New("VAR opcode not implemented yet")}
 	}
 	return nil
 }

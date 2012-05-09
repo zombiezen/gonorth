@@ -28,6 +28,7 @@ func TestSplitWords(t *testing.T) {
 		{"fred,go fishing", `.,"`, [][2]int{{0, 4}, {4, 5}, {5, 7}, {8, 15}}},
 		{"fred,,go fishing", `.,"`, [][2]int{{0, 4}, {4, 5}, {5, 6}, {6, 8}, {9, 16}}},
 		{"fred.,go fishing", `.,"`, [][2]int{{0, 4}, {4, 5}, {5, 6}, {6, 8}, {9, 16}}},
+		{"open mailbox. take leaflet.", `.,"`, [][2]int{{0, 4}, {5, 12}, {12, 13}, {14, 18}, {19, 26}, {26, 27}}},
 	}
 	for _, tt := range tests {
 		indices := splitWords([]rune(tt.Input), []rune(tt.Sep))

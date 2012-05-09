@@ -141,14 +141,14 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		return m.conditional(branch, int16(ops[0]) > int16(ops[1]))
 	case 0x04:
 		// dec_chk
-		newVal := m.getVariable(uint8(ops[0])) - 1
-		m.setVariable(uint8(ops[0]), newVal)
-		return m.conditional(branch, int16(newVal) < int16(ops[1]))
+		newVal := int16(m.getVariable(uint8(ops[0]))) - 1
+		m.setVariable(uint8(ops[0]), Word(newVal))
+		return m.conditional(branch, newVal < int16(ops[1]))
 	case 0x05:
 		// inc_chk
-		newVal := m.getVariable(uint8(ops[0])) + 1
-		m.setVariable(uint8(ops[0]), newVal)
-		return m.conditional(branch, int16(newVal) > int16(ops[1]))
+		newVal := int16(m.getVariable(uint8(ops[0]))) + 1
+		m.setVariable(uint8(ops[0]), Word(newVal))
+		return m.conditional(branch, newVal > int16(ops[1]))
 	case 0x06:
 		// jin
 		obj1 := m.loadObject(ops[0])
@@ -387,7 +387,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		m.storeWord(a, ops[2])
 	case 0x2:
 		// storeb
-		a := Address(ops[0]) + 2*Address(ops[1])
+		a := Address(ops[0]) + Address(ops[1])
 		m.memory[a] = byte(ops[2])
 	case 0x3:
 		// put_prop

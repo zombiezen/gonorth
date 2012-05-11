@@ -74,6 +74,7 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 		Locals:        make([]Word, nlocals),
 		Store:         true,
 		StoreVariable: ret,
+		NArg:          uint8(len(args)),
 	}
 	if m.Version() <= 4 {
 		for i := range newFrame.Locals {
@@ -87,8 +88,27 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 }
 
 func (m *Machine) routineNCall(address Address, args []Word) error {
-	// TODO
-	return errors.New("routineNCall not implemented yet")
+	if address == 0 {
+		return nil
+	}
+	nlocals := int(m.memory[address])
+	if nlocals > 15 {
+		return errors.New("Routines have a maximum of 15 local variables")
+	}
+	newFrame := stackFrame{
+		PC:     address + 1,
+		Locals: make([]Word, nlocals),
+		NArg:   uint8(len(args)),
+	}
+	if m.Version() <= 4 {
+		for i := range newFrame.Locals {
+			newFrame.Locals[i] = m.loadWord(address + 1 + Address(i)*2)
+		}
+		newFrame.PC += Address(nlocals) * 2
+	}
+	copy(newFrame.Locals, args)
+	m.stack = append(m.stack, newFrame)
+	return nil
 }
 
 func (m *Machine) routineReturn(val Word) error {
@@ -232,6 +252,21 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 	case 0x18:
 		// mod
 		m.setVariable(storeVariable, Word(int16(ops[0])%int16(ops[1])))
+	case 0x19:
+		// call_2s
+		if ops[0] == 0 {
+			return m.routineCall(0, nil, storeVariable)
+		} else {
+			return m.routineCall(m.packedAddress(ops[0]), ops[1:], storeVariable)
+		}
+	case 0x1a:
+		// call_2n
+		if ops[0] == 0 {
+			return m.routineNCall(0, nil)
+		} else {
+			return m.routineNCall(m.packedAddress(ops[0]), ops[1:])
+		}
+
 	default:
 		return instructionError{Instruction: in, Err: errors.New("2OP opcode not implemented yet")}
 	}
@@ -265,8 +300,16 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if m.Version() <= 3 {
 			size = m.memory[Address(ops[0])-1]>>5 + 1
 		} else {
-			// TODO
-			return instructionError{Instruction: in, Err: errors.New("Version 4+ get_prop_len not implemented yet")}
+			if m.memory[Address(ops[0])-1]&0x80 == 0 {
+				// One-byte
+				size = m.memory[Address(ops[0])-1]>>6 + 1
+			} else {
+				// Two-byte
+				size = m.memory[Address(ops[0])-1] & 0x3f
+				if size == 0 {
+					size = 64
+				}
+			}
 		}
 		m.setVariable(in.storeVariable, Word(size))
 	case 0x5:
@@ -282,6 +325,13 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 			return err
 		}
 		return m.ui.Print(s)
+	case 0x8:
+		// call_1s
+		if ops[0] == 0 {
+			return m.routineCall(0, nil, in.storeVariable)
+		} else {
+			return m.routineCall(m.packedAddress(ops[0]), nil, in.storeVariable)
+		}
 	case 0x9:
 		// remove_obj
 		m.removeObject(ops[0])
@@ -311,6 +361,13 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 	case 0xe:
 		// load
 		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
+	case 0xf:
+		// call_1n
+		if ops[0] == 0 {
+			return m.routineNCall(0, nil)
+		} else {
+			return m.routineNCall(m.packedAddress(ops[0]), nil)
+		}
 	default:
 		return instructionError{Instruction: in, Err: errors.New("1OP opcode not implemented yet")}
 	}
@@ -476,6 +533,35 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		} else {
 			return errors.New("multiple stacks not supported yet")
 		}
+	case 0xa:
+		// split_window
+		// TODO
+	case 0xb:
+		// set_window
+		// TODO
+	case 0xc:
+		// call_vs2
+		if ops[0] == 0 {
+			return m.routineCall(0, nil, in.storeVariable)
+		} else {
+			return m.routineCall(m.packedAddress(ops[0]), ops[1:], in.storeVariable)
+		}
+	case 0xf:
+		// set_cursor
+		// TODO
+	case 0x11:
+		// set_text_style
+		// TODO
+	case 0x19, 0x1a:
+		// call_vn, call_vn2
+		if ops[0] == 0 {
+			return m.routineNCall(0, nil)
+		} else {
+			return m.routineNCall(m.packedAddress(ops[0]), ops[1:])
+		}
+	case 0x1f:
+		// check_arg_count
+		return m.conditional(in.branch, m.currStackFrame().NArg == uint8(ops[0]))
 	default:
 		return instructionError{Instruction: in, Err: errors.New("VAR opcode not implemented yet")}
 	}

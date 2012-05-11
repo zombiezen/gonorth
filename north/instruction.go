@@ -146,8 +146,8 @@ func (si shortInstruction) StoreVariable() (uint8, bool) {
 		// TODO: save/restore/catch based on version
 		return si.storeVariable, false
 	}
-	// TODO: 0f is call_1n in version 5
-	return si.storeVariable, (n >= 0x01 && n <= 0x04) || n == 0x08 || n == 0x0e || n == 0x0f
+	// TODO: 0f is "NOT" in version <5
+	return si.storeVariable, (n >= 0x01 && n <= 0x04) || n == 0x08 || n == 0x0e
 }
 
 func (si shortInstruction) BranchInfo() (branchInfo, bool) {
@@ -218,11 +218,12 @@ func (vi variableInstruction) StoreVariable() (uint8, bool) {
 }
 
 func (vi variableInstruction) BranchInfo() (branchInfo, bool) {
-	if !vi.is2OP() {
-		return vi.branch, false
+	n := vi.OpcodeNumber()
+	if vi.is2OP() {
+		_, ok := longInstruction{opcode: n}.BranchInfo()
+		return vi.branch, ok
 	}
-	_, ok := longInstruction{opcode: vi.OpcodeNumber()}.BranchInfo()
-	return vi.branch, ok
+	return vi.branch, n == 0x1f
 }
 
 func (vi *variableInstruction) setOperand(i int, val Word) {
@@ -554,8 +555,8 @@ func (si shortInstruction) Name() string {
 	case 0xe:
 		return "load"
 	case 0xf:
-		// TODO: call_1n
-		return "not"
+		// TODO: not
+		return "call_1n"
 	}
 	return fmt.Sprintf("1OP:%02x", si.opcode)
 }

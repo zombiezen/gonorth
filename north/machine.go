@@ -37,6 +37,8 @@ type stackFrame struct {
 
 	Store         bool
 	StoreVariable uint8
+
+	NArg uint8
 }
 
 // LocalAt returns the local at 1-based index i.

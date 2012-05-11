@@ -55,14 +55,14 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 		var size, n uint8
 		if m.memory[a]&0x80 == 0 {
 			// One-byte
-			size, n = m.memory[a]>>5+1, m.memory[a]&0x1f
+			size, n = m.memory[a]>>6+1, m.memory[a]&0x3f
 			a++
 		} else {
 			// Two-byte
-			size, n = m.memory[a+1]&0x1f, m.memory[a]&0x1f
-			if n == 0 {
+			size, n = m.memory[a+1]&0x3f, m.memory[a]&0x3f
+			if size == 0 {
 				// Standard 12.4.2.1.1: 0 should be interpreted as 64
-				n = 64
+				size = 64
 			}
 			a += 2
 		}

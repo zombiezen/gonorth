@@ -135,12 +135,7 @@ func openStory(path string) (*north.Machine, error) {
 
 type terminalUI struct{}
 
-func (t *terminalUI) Print(s string) error {
-	_, err := fmt.Print(s)
-	return err
-}
-
-func (t *terminalUI) Read(n int) ([]rune, error) {
+func (t *terminalUI) Input(n int) ([]rune, error) {
 	r := make([]rune, 0, n)
 	for {
 		rr, _, err := in.ReadRune()
@@ -156,6 +151,19 @@ func (t *terminalUI) Read(n int) ([]rune, error) {
 	return r, nil
 }
 
+func (t *terminalUI) Output(s string) error {
+	_, err := fmt.Print(s)
+	return err
+}
+
 func (t *terminalUI) ReadRune() (rune, int, error) {
 	return in.ReadRune()
+}
+
+func (t *terminalUI) Save(m *north.Machine) error {
+	return nil
+}
+
+func (t *terminalUI) Restore(m *north.Machine) error {
+	return nil
 }

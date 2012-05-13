@@ -65,9 +65,11 @@ func (f *stackFrame) Pop() (w Word) {
 
 // A UI allows a Machine to interact with a user.
 type UI interface {
-	Print(string) error
-	Read(n int) ([]rune, error)
 	io.RuneReader
+	Input(n int) ([]rune, error)
+	Output(string) error
+	Save(m *Machine) error
+	Restore(m *Machine) error
 }
 
 // StatusLiner is a UI that can display a status line.

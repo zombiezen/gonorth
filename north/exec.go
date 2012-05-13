@@ -324,7 +324,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Print(s)
+		return m.ui.Output(s)
 	case 0x8:
 		// call_1s
 		if ops[0] == 0 {
@@ -343,7 +343,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Print(s)
+		return m.ui.Output(s)
 	case 0xb:
 		// ret
 		return m.routineReturn(ops[0])
@@ -357,7 +357,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Print(s)
+		return m.ui.Output(s)
 	case 0xe:
 		// load
 		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
@@ -384,15 +384,33 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return m.routineReturn(0)
 	case 0x2:
 		// print
-		return m.ui.Print(in.text)
+		return m.ui.Output(in.text)
 	case 0x3:
 		// print_ret
-		if err := m.ui.Print(in.text + "\n"); err != nil {
+		if err := m.ui.Output(in.text + "\n"); err != nil {
 			return err
 		}
 		return m.routineReturn(1)
 	case 0x4:
 		// nop
+	case 0x5:
+		// save
+		if m.Version() < 4 {
+			// TODO: log error?
+			err := m.ui.Save(m)
+			return m.conditional(in.branch, err == nil)
+		} else {
+			// TODO
+			return errors.New("Version 4 save not implemented")
+		}
+	case 0x6:
+		// restore
+		if m.Version() < 4 {
+			return m.ui.Restore(m)
+		} else {
+			// TODO
+			return errors.New("Version 4 restore not implemented")
+		}
 	case 0x7:
 		// restart
 		return ErrRestart
@@ -408,7 +426,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return ErrQuit
 	case 0xb:
 		// new_line
-		return m.ui.Print("\n")
+		return m.ui.Output("\n")
 	case 0xc:
 		// show_status
 		if m.Version() <= 3 {
@@ -467,7 +485,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		var input []rune
 		if m.Version() <= 4 {
 			var err error
-			input, err = m.ui.Read(int(m.memory[Address(ops[0])]) - 1)
+			input, err = m.ui.Input(int(m.memory[Address(ops[0])]) - 1)
 			if err != nil {
 				return err
 			}
@@ -511,10 +529,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Print(string(r))
+		return m.ui.Output(string(r))
 	case 0x6:
 		// print_num
-		return m.ui.Print(fmt.Sprint(int16(ops[0])))
+		return m.ui.Output(fmt.Sprint(int16(ops[0])))
 	case 0x7:
 		// random
 		if ops[0] == 0 {

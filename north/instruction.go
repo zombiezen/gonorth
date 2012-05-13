@@ -153,8 +153,8 @@ func (si shortInstruction) StoreVariable() (uint8, bool) {
 func (si shortInstruction) BranchInfo() (branchInfo, bool) {
 	n := si.OpcodeNumber()
 	if si.NOperand() == 0 {
-		// TODO: save/restore based on version
-		return si.branch, n == 0x0d || n == 0x0f
+		// TODO: not save(0x5)/restore(0x6) based on version
+		return si.branch, n == 0x05 || n == 0x06 || n == 0x0d || n == 0x0f
 	}
 	return si.branch, n >= 0x00 && n <= 0x02
 }

@@ -546,12 +546,28 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		} else {
 			return m.routineCall(m.packedAddress(ops[0]), ops[1:], in.storeVariable)
 		}
+	case 0xd:
+		// erase_window
+		// TODO
 	case 0xf:
 		// set_cursor
 		// TODO
 	case 0x11:
 		// set_text_style
 		// TODO
+	case 0x12:
+		// buffer_mode
+		// TODO
+	case 0x13:
+		// output_stream
+		// TODO
+	case 0x16:
+		// read_char
+		input, _, err := m.ui.ReadRune()
+		if err != nil {
+			return err
+		}
+		m.setVariable(in.storeVariable, Word(input))
 	case 0x19, 0x1a:
 		// call_vn, call_vn2
 		if ops[0] == 0 {

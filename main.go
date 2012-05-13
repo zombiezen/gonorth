@@ -155,3 +155,7 @@ func (t *terminalUI) Read(n int) ([]rune, error) {
 	}
 	return r, nil
 }
+
+func (t *terminalUI) ReadRune() (rune, int, error) {
+	return in.ReadRune()
+}

@@ -67,6 +67,7 @@ func (f *stackFrame) Pop() (w Word) {
 type UI interface {
 	Print(string) error
 	Read(n int) ([]rune, error)
+	io.RuneReader
 }
 
 // StatusLiner is a UI that can display a status line.

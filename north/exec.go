@@ -579,6 +579,29 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 	case 0x13:
 		// output_stream
 		// TODO
+	case 0x15:
+		// sound_effect
+		if player, ok := m.ui.(SoundPlayer); ok {
+			if len(ops) == 0 {
+				return player.PlaySound(1, -1, 0)
+			} else if len(ops) == 1 {
+				return player.PlaySound(int(ops[0]), -1, 0)
+			}
+			switch ops[1] {
+			case 1:
+				return player.PrepareSound(int(ops[0]))
+			case 2:
+				// TODO: Version 5+ callback
+				if len(ops) < 3 {
+					return player.PlaySound(int(ops[0]), -1, 0)
+				}
+				return player.PlaySound(int(ops[0]), int8(ops[1]&0x00ff), uint8(ops[1]>>8))
+			case 3:
+				return player.StopSound(int(ops[0]))
+			case 4:
+				return player.FinishSound(int(ops[0]))
+			}
+		}
 	case 0x16:
 		// read_char
 		input, _, err := m.ui.ReadRune()

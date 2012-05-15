@@ -77,6 +77,20 @@ type StatusLiner interface {
 	StatusLine(left, right string) error
 }
 
+// Predefined sound effects
+const (
+	HighPitchBleep = 1
+	LowPitchBleep  = 2
+)
+
+// SoundPlayer is a UI that can play sounds.
+type SoundPlayer interface {
+	PrepareSound(n int) error
+	PlaySound(n int, volume int8, repeats uint8) error
+	StopSound(n int) error
+	FinishSound(n int) error
+}
+
 type Machine struct {
 	memory []byte
 	stack  []stackFrame

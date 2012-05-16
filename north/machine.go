@@ -282,9 +282,10 @@ func (m *Machine) setVariable(v uint8, val Word) {
 	case v < 0x10:
 		// Local variable
 		m.currStackFrame().SetLocal(int(v), val)
+	default:
+		// Global variable
+		m.storeWord(m.globalAddress(v-0x10), val)
 	}
-	// Global variable
-	m.storeWord(m.globalAddress(v-0x10), val)
 }
 
 // fetchOperands returns the values of the operands.

@@ -111,6 +111,7 @@ func (li *longInstruction) setBranch(b branchInfo) {
 }
 
 type shortInstruction struct {
+	version       uint8
 	opcode        uint8
 	operand       Word
 	storeVariable uint8
@@ -143,18 +144,15 @@ func (si shortInstruction) Operand(i int) (Word, operandType) {
 func (si shortInstruction) StoreVariable() (uint8, bool) {
 	n := si.OpcodeNumber()
 	if si.NOperand() == 0 {
-		// TODO: save/restore/catch based on version
-		return si.storeVariable, false
+		return si.storeVariable, (si.version == 4 && (n == 0x05 || n == 0x06)) || (si.version >= 5 && n == 0x09)
 	}
-	// TODO: 0f is "NOT" in version <5
-	return si.storeVariable, (n >= 0x01 && n <= 0x04) || n == 0x08 || n == 0x0e
+	return si.storeVariable, (n >= 0x01 && n <= 0x04) || n == 0x08 || n == 0x0e || (si.version < 5 && n == 0x0f)
 }
 
 func (si shortInstruction) BranchInfo() (branchInfo, bool) {
 	n := si.OpcodeNumber()
 	if si.NOperand() == 0 {
-		// TODO: not save(0x5)/restore(0x6) based on version
-		return si.branch, n == 0x05 || n == 0x06 || n == 0x0d || n == 0x0f
+		return si.branch, (si.version < 4 && (n == 0x05 || n == 0x06)) || n == 0x0d || n == 0x0f
 	}
 	return si.branch, n >= 0x00 && n <= 0x02
 }
@@ -172,6 +170,7 @@ func (si *shortInstruction) setBranch(b branchInfo) {
 }
 
 type variableInstruction struct {
+	version       uint8
 	opcode        uint8
 	types         uint16
 	operands      [8]Word
@@ -213,8 +212,7 @@ func (vi variableInstruction) StoreVariable() (uint8, bool) {
 		_, ok := longInstruction{opcode: n}.StoreVariable()
 		return vi.storeVariable, ok
 	}
-	// TODO: 0x04 version 5, 0x09 version 6
-	return vi.storeVariable, n == 0x00 || n == 0x07 || n == 0x0c || (n >= 0x16 && n <= 0x18)
+	return vi.storeVariable, n == 0x00 || (vi.version >= 5 && n == 0x04) || n == 0x07 || (vi.version >= 6 && n == 0x09) || n == 0x0c || (n >= 0x16 && n <= 0x18)
 }
 
 func (vi variableInstruction) BranchInfo() (branchInfo, bool) {
@@ -292,7 +290,7 @@ func (ei *extendedInstruction) setBranch(b branchInfo) {
 	ei.branch = b
 }
 
-func decodeInstruction(r io.Reader, alphaset AlphabetSet, u Unabbreviater) (instruction, error) {
+func decodeInstruction(r io.Reader, alphaset AlphabetSet, u Unabbreviater, version uint8) (instruction, error) {
 	var buf [4]byte
 	if _, err := io.ReadFull(r, buf[:1]); err != nil {
 		return nil, err
@@ -316,14 +314,14 @@ func decodeInstruction(r io.Reader, alphaset AlphabetSet, u Unabbreviater) (inst
 		if _, err := io.ReadFull(r, buf[1:3]); err != nil {
 			return nil, err
 		}
-		in = &variableInstruction{opcode: buf[0], types: uint16(buf[1])<<8 | uint16(buf[2])}
+		in = &variableInstruction{version: version, opcode: buf[0], types: uint16(buf[1])<<8 | uint16(buf[2])}
 	case buf[0]&0xc0 == 0xc0:
 		if _, err := io.ReadFull(r, buf[1:2]); err != nil {
 			return nil, err
 		}
-		in = &variableInstruction{opcode: buf[0], types: uint16(buf[1])<<8 | 0xff}
+		in = &variableInstruction{version: version, opcode: buf[0], types: uint16(buf[1])<<8 | 0xff}
 	case buf[0]&0xc0 == 0x80:
-		in = &shortInstruction{opcode: buf[0]}
+		in = &shortInstruction{version: version, opcode: buf[0]}
 	default:
 		in = &longInstruction{opcode: buf[0]}
 	}
@@ -507,7 +505,9 @@ func (si shortInstruction) Name() string {
 		case 0x8:
 			return "ret_popped"
 		case 0x9:
-			// TODO: Catch?
+			if si.version >= 5 {
+				return "catch"
+			}
 			return "pop"
 		case 0xa:
 			return "quit"
@@ -555,8 +555,10 @@ func (si shortInstruction) Name() string {
 	case 0xe:
 		return "load"
 	case 0xf:
-		// TODO: not
-		return "call_1n"
+		if si.version >= 5 {
+			return "call_1n"
+		}
+		return "not"
 	}
 	return fmt.Sprintf("1OP:%02x", si.opcode)
 }
@@ -575,7 +577,6 @@ func (vi variableInstruction) Name() string {
 	case 0x03:
 		return "put_prop"
 	case 0x04:
-		// TODO: sread/aread
 		return "read"
 	case 0x05:
 		return "print_char"

@@ -33,7 +33,7 @@ func (m *Machine) Step() (err error) {
 		return err
 	}
 	// TODO: Get story alphabet set
-	i, err := decodeInstruction(r, StandardAlphabetSet, m)
+	i, err := decodeInstruction(r, StandardAlphabetSet, m, m.Version())
 	if err != nil {
 		return instructionError{Err: err}
 	}

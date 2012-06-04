@@ -497,8 +497,21 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			}
 			m.memory[Address(ops[0])+1+Address(len(input))] = 0
 		} else {
-			// TODO
-			return instructionError{Instruction: in, Err: errors.New("Read not implemented for version 5+")}
+			var err error
+			input, err = m.ui.Input(int(m.memory[Address(ops[0])]))
+			if err != nil {
+				return err
+			}
+
+			base := Address(ops[0]) + 2
+			if n := m.memory[Address(ops[0])+1]; n > 0 {
+				base += Address(n)
+			}
+			for i := range input {
+				// TODO: Ensure input is ZSCII-clean
+				m.memory[base+Address(i)] = byte(input[i])
+				input[i] = unicode.ToLower(input[i])
+			}
 		}
 
 		if m.Version() < 5 || ops[1] != 0 {
@@ -522,6 +535,11 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 					m.memory[base+Address(i)*4+3] = byte(words[i].Start + 2)
 				}
 			}
+		}
+
+		if m.Version() >= 5 {
+			// TODO: use actual terminating character
+			m.setVariable(in.storeVariable, '\n')
 		}
 	case 0x5:
 		// print_char

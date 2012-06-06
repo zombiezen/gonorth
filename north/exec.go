@@ -268,7 +268,9 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		} else {
 			return m.routineNCall(m.packedAddress(ops[0]), ops[1:])
 		}
-
+	case 0x1b:
+		// set_colour
+		// TODO
 	default:
 		return instructionError{Instruction: in, Err: errors.New("2OP opcode not implemented yet")}
 	}
@@ -364,11 +366,16 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		// load
 		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
 	case 0xf:
-		// call_1n
-		if ops[0] == 0 {
-			return m.routineNCall(0, nil)
+		if m.Version() < 5 {
+			// not
+			m.setVariable(in.storeVariable, ^ops[0])
 		} else {
-			return m.routineNCall(m.packedAddress(ops[0]), nil)
+			// call_1n
+			if ops[0] == 0 {
+				return m.routineNCall(0, nil)
+			} else {
+				return m.routineNCall(m.packedAddress(ops[0]), nil)
+			}
 		}
 	default:
 		return instructionError{Instruction: in, Err: errors.New("1OP opcode not implemented yet")}
@@ -397,21 +404,35 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		// nop
 	case 0x5:
 		// save
-		if m.Version() < 4 {
+		switch m.Version() {
+		case 1, 2, 3:
 			// TODO: log error?
 			err := m.ui.Save(m)
 			return m.conditional(in.branch, err == nil)
-		} else {
-			// TODO
-			return errors.New("Version 4 save not implemented")
+		case 4:
+			// TODO: log error?
+			err := m.ui.Save(m)
+			if err == nil {
+				m.setVariable(in.storeVariable, 1)
+			} else {
+				m.setVariable(in.storeVariable, 0)
+			}
+		default:
+			return instructionError{Instruction: in, Err: errors.New("Illegal instruction")}
 		}
 	case 0x6:
 		// restore
-		if m.Version() < 4 {
+		switch m.Version() {
+		case 1, 2, 3:
 			return m.ui.Restore(m)
-		} else {
-			// TODO
-			return errors.New("Version 4 restore not implemented")
+		case 4:
+			err := m.ui.Restore(m)
+			if err != nil {
+				m.setVariable(in.storeVariable, 0)
+				return err
+			}
+		default:
+			return instructionError{Instruction: in, Err: errors.New("Illegal instruction")}
 		}
 	case 0x7:
 		// restart
@@ -420,9 +441,14 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		// ret_popped
 		m.routineReturn(m.currStackFrame().Pop())
 	case 0x9:
-		// pop
-		// TODO: v5+ catch
-		m.currStackFrame().Pop()
+		if m.Version() < 5 {
+			// pop
+			m.currStackFrame().Pop()
+		} else {
+			// catch
+			// TODO
+			return instructionError{Instruction: in, Err: errors.New("catch not implemented")}
+		}
 	case 0xa:
 		// quit
 		return ErrQuit
@@ -574,9 +600,18 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 	case 0xd:
 		// erase_window
 		// TODO
+	case 0xe:
+		// erase_line
+		// TODO
 	case 0xf:
 		// set_cursor
 		// TODO
+	case 0x10:
+		// get_cursor
+		// TODO
+		addr := Address(ops[0])
+		m.storeWord(addr, 0)   // row
+		m.storeWord(addr+2, 0) // col
 	case 0x11:
 		// set_text_style
 		// TODO
@@ -614,6 +649,9 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		default:
 			return instructionError{Instruction: in, Err: fmt.Errorf("Invalid output stream: %d", int16(ops[0]))}
 		}
+	case 0x14:
+		// input_stream
+		// TODO
 	case 0x15:
 		// sound_effect
 		if player, ok := m.ui.(SoundPlayer); ok {
@@ -644,6 +682,9 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			return err
 		}
 		m.setVariable(in.storeVariable, Word(input))
+	case 0x18:
+		// not (v5+)
+		m.setVariable(in.storeVariable, ^ops[0])
 	case 0x19, 0x1a:
 		// call_vn, call_vn2
 		if ops[0] == 0 {
@@ -682,12 +723,58 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 func (m *Machine) stepExtendedInstruction(in *extendedInstruction) error {
 	ops := m.fetchOperands(in)
 	switch in.OpcodeNumber() {
+	case 0x00:
+		// save
+		// TODO: log error?
+		err := m.ui.Save(m)
+		if err == nil {
+			m.setVariable(in.storeVariable, 1)
+		} else {
+			m.setVariable(in.storeVariable, 0)
+		}
+	case 0x01:
+		// restore
+		err := m.ui.Restore(m)
+		if err != nil {
+			m.setVariable(in.storeVariable, 0)
+			return err
+		}
+	case 0x02:
+		// log_shift
+		result := ops[0]
+		if places := int16(ops[1]); places > 0 {
+			result <<= uint(places)
+		} else if places < 0 {
+			result >>= uint(-places)
+		}
+		m.setVariable(in.storeVariable, result)
+	case 0x03:
+		// art_shift
+		result := int16(ops[0])
+		if places := int16(ops[1]); places > 0 {
+			result <<= uint(places)
+		} else if places < 0 {
+			result >>= uint(-places)
+		}
+		m.setVariable(in.storeVariable, Word(result))
+	case 0x04:
+		// set_font
+		// TODO
+		m.setVariable(in.storeVariable, 0)
 	case 0x09:
 		// save_undo
+		// TODO
+		m.setVariable(in.storeVariable, Word(0xffff))
+	case 0x0a:
+		// restore_undo
 		// TODO
 	case 0x0b:
 		// print_unicode
 		return m.out(string(rune(ops[0])))
+	case 0x0c:
+		// check_unicode
+		// XXX: should we ask the UI whether it can receive Unicode?
+		m.setVariable(in.storeVariable, 0x0003)
 	default:
 		return instructionError{Instruction: in, Err: errors.New("EXT opcode not implemented yet")}
 	}

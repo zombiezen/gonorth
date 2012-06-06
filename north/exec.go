@@ -657,6 +657,9 @@ func (m *Machine) stepExtendedInstruction(in *extendedInstruction) error {
 	case 0x09:
 		// save_undo
 		// TODO
+	case 0x0b:
+		// print_unicode
+		m.ui.Output(m.window, string(rune(ops[0])))
 	default:
 		return instructionError{Instruction: in, Err: errors.New("EXT opcode not implemented yet")}
 	}

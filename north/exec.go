@@ -801,6 +801,5 @@ func (m *Machine) stepExtendedInstruction(in *extendedInstruction) error {
 	default:
 		return instructionError{Instruction: in, Err: errors.New("EXT opcode not implemented yet")}
 	}
-	_ = ops
 	return nil
 }

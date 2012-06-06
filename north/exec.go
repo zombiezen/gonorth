@@ -326,7 +326,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(m.window, s)
+		return m.out(s)
 	case 0x8:
 		// call_1s
 		if ops[0] == 0 {
@@ -345,7 +345,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(m.window, s)
+		return m.out(s)
 	case 0xb:
 		// ret
 		return m.routineReturn(ops[0])
@@ -359,7 +359,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(m.window, s)
+		return m.out(s)
 	case 0xe:
 		// load
 		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
@@ -386,10 +386,10 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return m.routineReturn(0)
 	case 0x2:
 		// print
-		return m.ui.Output(m.window, in.text)
+		return m.out(in.text)
 	case 0x3:
 		// print_ret
-		if err := m.ui.Output(m.window, in.text + "\n"); err != nil {
+		if err := m.out(in.text + "\n"); err != nil {
 			return err
 		}
 		return m.routineReturn(1)
@@ -428,7 +428,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return ErrQuit
 	case 0xb:
 		// new_line
-		return m.ui.Output(m.window, "\n")
+		return m.out("\n")
 	case 0xc:
 		// show_status
 		if m.Version() <= 3 {
@@ -536,10 +536,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(m.window, string(r))
+		return m.out(string(r))
 	case 0x6:
 		// print_num
-		return m.ui.Output(m.window, fmt.Sprint(int16(ops[0])))
+		return m.out(fmt.Sprint(int16(ops[0])))
 	case 0x7:
 		// random
 		if ops[0] == 0 {
@@ -585,7 +585,35 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		// TODO
 	case 0x13:
 		// output_stream
-		// TODO
+		switch int16(ops[0]) {
+		case 0:
+			// do nothing
+		case screenOutput:
+			m.streams |= 1 << screenOutput
+		case -screenOutput:
+			m.streams &^= 1 << screenOutput
+		case transcriptOutput:
+			m.streams |= 1 << transcriptOutput
+		case -transcriptOutput:
+			m.streams &^= 1 << transcriptOutput
+		case redirectOutput:
+			m.streams |= 1 << redirectOutput
+			if len(m.rtables) == cap(m.rtables) {
+				return instructionError{Instruction: in, Err: errors.New("Too many output redirection levels")}
+			}
+			addr := Address(ops[1])
+			m.rtables = append(m.rtables, rtable{addr, addr + 2})
+			m.storeWord(addr, 0)
+		case -redirectOutput:
+			if len(m.rtables) > 1 {
+				m.rtables = m.rtables[:len(m.rtables)-1]
+			} else {
+				m.rtables = m.rtables[:0]
+				m.streams &^= 1 << redirectOutput
+			}
+		default:
+			return instructionError{Instruction: in, Err: fmt.Errorf("Invalid output stream: %d", int16(ops[0]))}
+		}
 	case 0x15:
 		// sound_effect
 		if player, ok := m.ui.(SoundPlayer); ok {
@@ -659,7 +687,7 @@ func (m *Machine) stepExtendedInstruction(in *extendedInstruction) error {
 		// TODO
 	case 0x0b:
 		// print_unicode
-		m.ui.Output(m.window, string(rune(ops[0])))
+		return m.out(string(rune(ops[0])))
 	default:
 		return instructionError{Instruction: in, Err: errors.New("EXT opcode not implemented yet")}
 	}

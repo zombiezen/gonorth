@@ -91,12 +91,31 @@ type SoundPlayer interface {
 	FinishSound(n int) error
 }
 
+// Output streams
+const (
+	screenOutput = 1 + iota
+	transcriptOutput
+	redirectOutput
+	readOutput
+
+	numOutputStreams
+)
+
+// rtable is a redirect table pointer.
+type rtable struct {
+	Start Address
+	Curr  Address
+}
+
 type Machine struct {
 	memory []byte
 	stack  []stackFrame
 	ui     UI
-	window int
 	rand   *rand.Rand
+
+	window  int
+	streams uint8
+	rtables []rtable
 }
 
 // NewMachine creates a new machine, loaded with the story from r.
@@ -141,6 +160,8 @@ func (m *Machine) Load(r io.Reader) error {
 	}
 	m.memory = newMemory
 	m.stack = make([]stackFrame, 1)
+	m.rtables = make([]rtable, 0, 16)
+	m.streams = 1<<screenOutput | 1<<transcriptOutput
 	m.seed()
 
 	// TODO: In version 6+, this is a routine, not a direct PC.
@@ -187,6 +208,29 @@ func (m *Machine) copyUIFlags() {
 			m.memory[flags2] |= 1 << 7
 		}
 	}
+}
+
+// out handles output. This is sent to the UI, unless redirection has been
+// turned on.
+func (m *Machine) out(s string) error {
+	if m.streams&(1<<redirectOutput) != 0 {
+		// If redirect is selected, no other streams get output.
+		tab := &m.rtables[len(m.rtables)-1]
+		m.storeWord(tab.Start, m.loadWord(tab.Start)+Word(len(s)))
+		for _, r := range s {
+			// rune should already be ZSCII-clean, since we wrote it.
+			m.memory[tab.Curr] = byte(r)
+			tab.Curr++
+		}
+		return nil
+	}
+	if m.streams&(1<<screenOutput) != 0 {
+		if err := m.ui.Output(m.window, s); err != nil {
+			return err
+		}
+	}
+	// TODO: transcript, etc.
+	return nil
 }
 
 func (m *Machine) refreshStatusLine() error {

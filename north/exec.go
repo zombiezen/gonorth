@@ -711,6 +711,29 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			input[i] = unicode.ToLower(rune(m.memory[textAddr+2+Address(i)]))
 		}
 		m.tokenise(input, dict, Address(ops[1]), len(ops) < 3 || ops[3] == 0)
+	case 0x1d:
+		// copy_table
+		src := Address(ops[0])
+		dst := Address(ops[1])
+		size := Address(int16(ops[2]))
+		if dst == 0 {
+			for addr := src; addr < src+size; addr++ {
+				m.memory[addr] = 0
+			}
+			return nil
+		}
+		if size >= 0 {
+			// Go guarantees proper overlapping copies.
+			copy(m.memory[dst:dst+size], m.memory[src:src+size])
+		} else {
+			// Negative size means forcibly copy backward.
+			for i := -size - 1; i >= 0; i-- {
+				m.memory[dst+i] = m.memory[src+i]
+			}
+		}
+	case 0x1e:
+		// print_table
+		// TODO
 	case 0x1f:
 		// check_arg_count
 		return m.conditional(in.branch, m.currStackFrame().NArg == uint8(ops[0]))

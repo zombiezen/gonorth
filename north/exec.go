@@ -485,9 +485,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			m.refreshStatusLine()
 		}
 		var input []rune
+		textAddr := Address(ops[0])
 		if m.Version() <= 4 {
 			var err error
-			input, err = m.ui.Input(int(m.memory[Address(ops[0])]) - 1)
+			input, err = m.ui.Input(int(m.memory[textAddr]) - 1)
 			if err != nil {
 				return err
 			}
@@ -495,9 +496,9 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			for i := range input {
 				// TODO: Ensure input is ZSCII-clean
 				input[i] = unicode.ToLower(input[i])
-				m.memory[Address(ops[0])+1+Address(i)] = byte(input[i])
+				m.memory[textAddr+1+Address(i)] = byte(input[i])
 			}
-			m.memory[Address(ops[0])+1+Address(len(input))] = 0
+			m.memory[textAddr+1+Address(len(input))] = 0
 		} else {
 			var err error
 			input, err = m.ui.Input(int(m.memory[Address(ops[0])]))
@@ -505,10 +506,11 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 				return err
 			}
 
-			base := Address(ops[0]) + 2
-			if n := m.memory[Address(ops[0])+1]; n > 0 {
+			base := textAddr + 2
+			if n := m.memory[textAddr+1]; n > 0 {
 				base += Address(n)
 			}
+			m.memory[textAddr+1] += byte(len(input))
 			for i := range input {
 				// TODO: Ensure input is ZSCII-clean
 				m.memory[base+Address(i)] = byte(input[i])
@@ -517,26 +519,11 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 
 		if m.Version() < 5 || ops[1] != 0 {
-			dict, err := m.dictionary()
+			dict, err := m.dictionary(m.dictionaryAddress())
 			if err != nil {
 				return err
 			}
-			words := lex(input, dict)
-			maxWords := m.memory[ops[1]]
-			if len(words) > int(maxWords) {
-				words = words[:maxWords]
-			}
-			m.memory[Address(ops[1])+1] = byte(len(words))
-			base := Address(ops[1]) + 2
-			for i := range words {
-				m.storeWord(base+Address(i)*4, Word(words[i].Word))
-				m.memory[base+Address(i)*4+2] = byte(words[i].End - words[i].Start)
-				if m.Version() <= 4 {
-					m.memory[base+Address(i)*4+3] = byte(words[i].Start + 1)
-				} else {
-					m.memory[base+Address(i)*4+3] = byte(words[i].Start + 2)
-				}
-			}
+			m.tokenise(input, dict, Address(ops[1]), true)
 		}
 
 		if m.Version() >= 5 {
@@ -638,7 +625,23 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 	case 0x1b:
 		// tokenise
-		// TODO
+		var dict dictionary
+		var err error
+		if len(ops) > 2 && ops[2] != 0 {
+			dict, err = m.dictionary(Address(ops[2]))
+		} else {
+			dict, err = m.dictionary(m.dictionaryAddress())
+		}
+		if err != nil {
+			return err
+		}
+		textAddr := Address(ops[0])
+		n := Address(m.memory[textAddr+1])
+		input := make([]rune, n)
+		for i := range input {
+			input[i] = unicode.ToLower(rune(m.memory[textAddr+2+Address(i)]))
+		}
+		m.tokenise(input, dict, Address(ops[1]), len(ops) < 3 || ops[3] == 0)
 	case 0x1f:
 		// check_arg_count
 		return m.conditional(in.branch, m.currStackFrame().NArg == uint8(ops[0]))

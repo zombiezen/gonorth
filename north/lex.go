@@ -9,8 +9,8 @@ type dictionary struct {
 	WordSize   int
 }
 
-func (m *Machine) dictionary() (d dictionary, err error) {
-	d.Base = m.dictionaryAddress()
+func (m *Machine) dictionary(addr Address) (d dictionary, err error) {
+	d.Base = addr
 	d.Separators = make([]rune, m.memory[d.Base])
 	for i := range d.Separators {
 		d.Separators[i], err = zsciiLookup(uint16(m.memory[d.Base+Address(i)+1]), false)
@@ -22,6 +22,10 @@ func (m *Machine) dictionary() (d dictionary, err error) {
 
 	d.EntrySize = m.memory[d.Base]
 	d.Count = m.loadWord(d.Base + 1)
+	if i := int16(d.Count); i < 0 {
+		// XXX: This may not be right for the game dictionary.
+		d.Count = Word(-i)
+	}
 	d.Base += 3
 	d.Words = make(map[string]Address, d.Count)
 	if m.Version() <= 3 {
@@ -40,6 +44,31 @@ func (m *Machine) dictionary() (d dictionary, err error) {
 		d.Words[s] = a
 	}
 	return
+}
+
+// tokenise performs lexical analysis on input using dict, storing the result at
+// addr. If storeZero is false, then the parse info for any unrecognized words
+// is left unchanged.
+func (m *Machine) tokenise(input []rune, dict dictionary, addr Address, storeZero bool) {
+	words := lex(input, dict)
+	maxWords := int(m.memory[addr])
+	if len(words) > maxWords {
+		words = words[:maxWords]
+	}
+	m.memory[addr+1] = byte(len(words))
+	base := addr + 2
+	version := m.Version()
+	for i := range words {
+		if storeZero || words[i].Word != 0 {
+			m.storeWord(base+Address(i)*4, Word(words[i].Word))
+			m.memory[base+Address(i)*4+2] = byte(words[i].End - words[i].Start)
+			if version <= 4 {
+				m.memory[base+Address(i)*4+3] = byte(words[i].Start + 1)
+			} else {
+				m.memory[base+Address(i)*4+3] = byte(words[i].Start + 2)
+			}
+		}
+	}
 }
 
 type lexWord struct {

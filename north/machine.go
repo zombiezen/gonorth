@@ -190,24 +190,31 @@ func (m *Machine) RestoreStack(r io.Reader) error {
 
 func (m *Machine) copyUIFlags() {
 	const (
-		flags1 Address = 1
-		flags2 Address = 0x10
+		flags1       Address = 0x01
+		flags2       Address = 0x10
+		screenWidth  Address = 0x20
+		screenHeight Address = 0x21
 	)
+
 	if m.Version() < 4 {
 		m.memory[flags1] &= 0x8f
 		if _, ok := m.ui.(StatusLiner); !ok {
 			m.memory[flags1] |= 1 << 4
 		}
-	} else {
-		m.memory[flags1] &= 0x40
-		if _, ok := m.ui.(SoundPlayer); ok {
-			m.memory[flags1] |= 1 << 5
-		}
-		m.memory[flags2] &= 0x47
-		if _, ok := m.ui.(SoundPlayer); ok {
-			m.memory[flags2] |= 1 << 7
-		}
+		return
 	}
+
+	m.memory[flags1] &= 0x40
+	if _, ok := m.ui.(SoundPlayer); ok {
+		m.memory[flags1] |= 1 << 5
+	}
+	m.memory[flags2] &= 0x47
+	if _, ok := m.ui.(SoundPlayer); ok {
+		m.memory[flags2] |= 1 << 7
+	}
+	// TODO
+	m.memory[screenWidth] = 255
+	m.memory[screenHeight] = 255
 }
 
 // out handles output. This is sent to the UI, unless redirection has been

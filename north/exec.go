@@ -326,7 +326,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(s)
+		return m.ui.Output(m.window, s)
 	case 0x8:
 		// call_1s
 		if ops[0] == 0 {
@@ -345,7 +345,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(s)
+		return m.ui.Output(m.window, s)
 	case 0xb:
 		// ret
 		return m.routineReturn(ops[0])
@@ -359,7 +359,7 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(s)
+		return m.ui.Output(m.window, s)
 	case 0xe:
 		// load
 		m.setVariable(in.storeVariable, m.getVariable(uint8(ops[0])))
@@ -386,10 +386,10 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return m.routineReturn(0)
 	case 0x2:
 		// print
-		return m.ui.Output(in.text)
+		return m.ui.Output(m.window, in.text)
 	case 0x3:
 		// print_ret
-		if err := m.ui.Output(in.text + "\n"); err != nil {
+		if err := m.ui.Output(m.window, in.text + "\n"); err != nil {
 			return err
 		}
 		return m.routineReturn(1)
@@ -428,7 +428,7 @@ func (m *Machine) step0OPInstruction(in *shortInstruction) error {
 		return ErrQuit
 	case 0xb:
 		// new_line
-		return m.ui.Output("\n")
+		return m.ui.Output(m.window, "\n")
 	case 0xc:
 		// show_status
 		if m.Version() <= 3 {
@@ -536,10 +536,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		if err != nil {
 			return err
 		}
-		return m.ui.Output(string(r))
+		return m.ui.Output(m.window, string(r))
 	case 0x6:
 		// print_num
-		return m.ui.Output(fmt.Sprint(int16(ops[0])))
+		return m.ui.Output(m.window, fmt.Sprint(int16(ops[0])))
 	case 0x7:
 		// random
 		if ops[0] == 0 {
@@ -563,7 +563,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		// TODO
 	case 0xb:
 		// set_window
-		// TODO
+		m.window = int(ops[0])
 	case 0xc:
 		// call_vs2
 		if ops[0] == 0 {

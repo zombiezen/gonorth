@@ -151,7 +151,10 @@ func (t *terminalUI) Input(n int) ([]rune, error) {
 	return r, nil
 }
 
-func (t *terminalUI) Output(s string) error {
+func (t *terminalUI) Output(window int, s string) error {
+	if window != 0 {
+		return nil
+	}
 	_, err := fmt.Print(s)
 	return err
 }

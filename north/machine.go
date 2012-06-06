@@ -67,7 +67,7 @@ func (f *stackFrame) Pop() (w Word) {
 type UI interface {
 	io.RuneReader
 	Input(n int) ([]rune, error)
-	Output(string) error
+	Output(window int, text string) error
 	Save(m *Machine) error
 	Restore(m *Machine) error
 }
@@ -95,6 +95,7 @@ type Machine struct {
 	memory []byte
 	stack  []stackFrame
 	ui     UI
+	window int
 	rand   *rand.Rand
 }
 

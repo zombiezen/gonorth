@@ -167,14 +167,24 @@ func (m *Machine) RestoreStack(r io.Reader) error {
 }
 
 func (m *Machine) copyUIFlags() {
-	if m.Version() > 3 {
-		// TODO
-		return
-	}
-
-	m.memory[1] &^= 0x70
-	if _, ok := m.ui.(StatusLiner); !ok {
-		m.memory[1] |= 0x10
+	const (
+		flags1 Address = 1
+		flags2 Address = 0x10
+	)
+	if m.Version() < 4 {
+		m.memory[flags1] &= 0x8f
+		if _, ok := m.ui.(StatusLiner); !ok {
+			m.memory[flags1] |= 1 << 4
+		}
+	} else {
+		m.memory[flags1] &= 0x40
+		if _, ok := m.ui.(SoundPlayer); ok {
+			m.memory[flags1] |= 1 << 5
+		}
+		m.memory[flags2] &= 0x47
+		if _, ok := m.ui.(SoundPlayer); ok {
+			m.memory[flags2] |= 1 << 7
+		}
 	}
 }
 

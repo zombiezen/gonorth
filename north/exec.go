@@ -56,6 +56,8 @@ func (m *Machine) Step() (err error) {
 		} else {
 			return m.stepVariableInstruction(in)
 		}
+	case *extendedInstruction:
+		return m.stepExtendedInstruction(in)
 	}
 	return instructionError{Instruction: i, Err: errors.New("Instruction type not implemented yet")}
 }
@@ -634,11 +636,27 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		} else {
 			return m.routineNCall(m.packedAddress(ops[0]), ops[1:])
 		}
+	case 0x1b:
+		// tokenise
+		// TODO
 	case 0x1f:
 		// check_arg_count
 		return m.conditional(in.branch, m.currStackFrame().NArg == uint8(ops[0]))
 	default:
 		return instructionError{Instruction: in, Err: errors.New("VAR opcode not implemented yet")}
 	}
+	return nil
+}
+
+func (m *Machine) stepExtendedInstruction(in *extendedInstruction) error {
+	ops := m.fetchOperands(in)
+	switch in.OpcodeNumber() {
+	case 0x09:
+		// save_undo
+		// TODO
+	default:
+		return instructionError{Instruction: in, Err: errors.New("EXT opcode not implemented yet")}
+	}
+	_ = ops
 	return nil
 }

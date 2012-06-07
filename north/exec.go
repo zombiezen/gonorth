@@ -579,11 +579,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		m.currStackFrame().Push(ops[0])
 	case 0x9:
 		// pull
-		if m.Version() < 6 {
-			m.setVariable(uint8(ops[0]), m.currStackFrame().Pop())
-		} else {
+		if m.Version() == 6 {
 			return errors.New("multiple stacks not supported yet")
 		}
+		m.setVariable(uint8(ops[0]), m.currStackFrame().Pop())
 	case 0xa:
 		// split_window
 		// TODO

@@ -212,7 +212,7 @@ func (vi variableInstruction) StoreVariable() (uint8, bool) {
 		_, ok := longInstruction{opcode: n}.StoreVariable()
 		return vi.storeVariable, ok
 	}
-	return vi.storeVariable, n == 0x00 || (vi.version >= 5 && n == 0x04) || n == 0x07 || (vi.version >= 6 && n == 0x09) || n == 0x0c || (n >= 0x16 && n <= 0x18)
+	return vi.storeVariable, n == 0x00 || (vi.version >= 5 && n == 0x04) || n == 0x07 || (vi.version == 6 && n == 0x09) || n == 0x0c || (n >= 0x16 && n <= 0x18)
 }
 
 func (vi variableInstruction) BranchInfo() (branchInfo, bool) {

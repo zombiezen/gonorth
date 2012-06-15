@@ -213,8 +213,8 @@ func (m *Machine) copyUIFlags() {
 		m.memory[flags2] |= 1 << 7
 	}
 	// TODO
-	m.memory[screenWidth] = 255
-	m.memory[screenHeight] = 255
+	m.storeByte(screenWidth, 255)
+	m.storeByte(screenHeight, 255)
 }
 
 // out handles output. This is sent to the UI, unless redirection has been
@@ -226,7 +226,7 @@ func (m *Machine) out(s string) error {
 		m.storeWord(tab.Start, m.loadWord(tab.Start)+Word(len(s)))
 		for _, r := range s {
 			// rune should already be ZSCII-clean, since we wrote it.
-			m.memory[tab.Curr] = byte(r)
+			m.storeByte(tab.Curr, byte(r))
 			tab.Curr++
 		}
 		return nil
@@ -246,7 +246,7 @@ func (m *Machine) refreshStatusLine() error {
 		return nil
 	}
 
-	isTime := m.memory[1]&0x02 != 0
+	isTime := m.loadByte(1)&0x02 != 0
 	name, err := m.loadObject(m.getVariable(0x10)).FetchName(m)
 	if err != nil {
 		return err
@@ -381,7 +381,7 @@ func (m *Machine) packedAddress(p Word) Address {
 
 // Version returns the version of the machine, defined in the story file.
 func (m *Machine) Version() byte {
-	return m.memory[0]
+	return m.loadByte(0)
 }
 
 // seed restarts the random generator with the current time as a seed.
@@ -392,6 +392,14 @@ func (m *Machine) seed() {
 // random returns the next random number.
 func (m *Machine) random(s Word) Word {
 	return Word(m.rand.Uint32()%uint32(s) + 1)
+}
+
+func (m *Machine) loadByte(a Address) byte {
+	return m.memory[a]
+}
+
+func (m *Machine) storeByte(a Address, b byte) {
+	m.memory[a] = b
 }
 
 func (m *Machine) loadWord(a Address) Word {

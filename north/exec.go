@@ -67,7 +67,7 @@ func (m *Machine) routineCall(address Address, args []Word, ret uint8) error {
 		m.setVariable(ret, 0)
 		return nil
 	}
-	nlocals := int(m.memory[address])
+	nlocals := int(m.loadByte(address))
 	if nlocals > 15 {
 		return errors.New("Routines have a maximum of 15 local variables")
 	}
@@ -93,7 +93,7 @@ func (m *Machine) routineNCall(address Address, args []Word) error {
 	if address == 0 {
 		return nil
 	}
-	nlocals := int(m.memory[address])
+	nlocals := int(m.loadByte(address))
 	if nlocals > 15 {
 		return errors.New("Routines have a maximum of 15 local variables")
 	}
@@ -210,9 +210,8 @@ func (m *Machine) step2OPInstruction(in instruction) error {
 		m.setVariable(storeVariable, m.loadWord(a))
 	case 0x10:
 		// loadb
-		// TODO: should the value be sign extended?
 		a := Address(ops[0]) + Address(ops[1])
-		m.setVariable(storeVariable, Word(m.memory[a]))
+		m.setVariable(storeVariable, Word(m.loadByte(a)))
 	case 0x11:
 		// get_prop
 		obj := m.loadObject(ops[0])
@@ -302,14 +301,14 @@ func (m *Machine) step1OPInstruction(in *shortInstruction) error {
 		// Sadly, the operand is the address of the property data, so we have to dupe work to extract the length. Le sigh.
 		var size uint8
 		if m.Version() <= 3 {
-			size = m.memory[Address(ops[0])-1]>>5 + 1
+			size = m.loadByte(Address(ops[0])-1)>>5 + 1
 		} else {
-			if m.memory[Address(ops[0])-1]&0x80 == 0 {
+			if m.loadByte(Address(ops[0])-1)&0x80 == 0 {
 				// One-byte
-				size = m.memory[Address(ops[0])-1]>>6 + 1
+				size = m.loadByte(Address(ops[0])-1)>>6 + 1
 			} else {
 				// Two-byte
-				size = m.memory[Address(ops[0])-1] & 0x3f
+				size = m.loadByte(Address(ops[0])-1) & 0x3f
 				if size == 0 {
 					size = 64
 				}
@@ -491,7 +490,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 	case 0x2:
 		// storeb
 		a := Address(ops[0]) + Address(ops[1])
-		m.memory[a] = byte(ops[2])
+		m.storeByte(a, byte(ops[2]))
 	case 0x3:
 		// put_prop
 		obj := m.loadObject(ops[0])
@@ -514,7 +513,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		textAddr := Address(ops[0])
 		if m.Version() <= 4 {
 			var err error
-			input, err = m.ui.Input(int(m.memory[textAddr]) - 1)
+			input, err = m.ui.Input(int(m.loadByte(textAddr)) - 1)
 			if err != nil {
 				return err
 			}
@@ -522,24 +521,24 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			for i := range input {
 				// TODO: Ensure input is ZSCII-clean
 				input[i] = unicode.ToLower(input[i])
-				m.memory[textAddr+1+Address(i)] = byte(input[i])
+				m.storeByte(textAddr+1+Address(i), byte(input[i]))
 			}
-			m.memory[textAddr+1+Address(len(input))] = 0
+			m.storeByte(textAddr+1+Address(len(input)), 0)
 		} else {
 			var err error
-			input, err = m.ui.Input(int(m.memory[Address(ops[0])]))
+			input, err = m.ui.Input(int(m.loadByte(Address(ops[0]))))
 			if err != nil {
 				return err
 			}
 
 			base := textAddr + 2
-			if n := m.memory[textAddr+1]; n > 0 {
+			if n := m.loadByte(textAddr + 1); n > 0 {
 				base += Address(n)
 			}
-			m.memory[textAddr+1] += byte(len(input))
+			m.storeByte(textAddr+1, m.loadByte(textAddr+1)+byte(len(input)))
 			for i := range input {
 				// TODO: Ensure input is ZSCII-clean
-				m.memory[base+Address(i)] = byte(input[i])
+				m.storeByte(base+Address(i), byte(input[i]))
 				input[i] = unicode.ToLower(input[i])
 			}
 		}
@@ -704,10 +703,10 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 			return err
 		}
 		textAddr := Address(ops[0])
-		n := Address(m.memory[textAddr+1])
+		n := Address(m.loadByte(textAddr + 1))
 		input := make([]rune, n)
 		for i := range input {
-			input[i] = unicode.ToLower(rune(m.memory[textAddr+2+Address(i)]))
+			input[i] = unicode.ToLower(rune(m.loadByte(textAddr + 2 + Address(i))))
 		}
 		m.tokenise(input, dict, Address(ops[1]), len(ops) < 3 || ops[3] == 0)
 	case 0x1d:
@@ -717,7 +716,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		size := Address(int16(ops[2]))
 		if dst == 0 {
 			for addr := src; addr < src+size; addr++ {
-				m.memory[addr] = 0
+				m.storeByte(addr, 0)
 			}
 			return nil
 		}
@@ -727,7 +726,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		} else {
 			// Negative size means forcibly copy backward.
 			for i := -size - 1; i >= 0; i-- {
-				m.memory[dst+i] = m.memory[src+i]
+				m.storeByte(dst+i, m.loadByte(src+i))
 			}
 		}
 	case 0x1e:

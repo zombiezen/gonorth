@@ -38,10 +38,10 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 		return 0, 0
 	}
 
-	a := o.PropertyBase + 1 + Address(m.memory[o.PropertyBase])*2
+	a := o.PropertyBase + 1 + Address(m.loadByte(o.PropertyBase))*2
 	if m.Version() <= 3 {
-		for m.memory[a] != 0 {
-			size, n := m.memory[a]>>5+1, m.memory[a]&0x1f
+		for m.loadByte(a) != 0 {
+			size, n := m.loadByte(a)>>5+1, m.loadByte(a)&0x1f
 			a++
 			if n == i {
 				return a, size
@@ -53,13 +53,13 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 
 	for {
 		var size, n uint8
-		if m.memory[a]&0x80 == 0 {
+		if m.loadByte(a)&0x80 == 0 {
 			// One-byte
-			size, n = m.memory[a]>>6+1, m.memory[a]&0x3f
+			size, n = m.loadByte(a)>>6+1, m.loadByte(a)&0x3f
 			a++
 		} else {
 			// Two-byte
-			size, n = m.memory[a+1]&0x3f, m.memory[a]&0x3f
+			size, n = m.loadByte(a+1)&0x3f, m.loadByte(a)&0x3f
 			if size == 0 {
 				// Standard 12.4.2.1.1: 0 should be interpreted as 64
 				size = 64
@@ -81,15 +81,15 @@ func (o *object) propLoc(m *Machine, i uint8) (Address, uint8) {
 func (o *object) NextProperty(m *Machine, i uint8) (uint8, error) {
 	if i == 0 {
 		// First property
-		a := o.PropertyBase + 1 + Address(m.memory[o.PropertyBase])*2
-		return m.memory[a] & 0x1f, nil
+		a := o.PropertyBase + 1 + Address(m.loadByte(o.PropertyBase))*2
+		return m.loadByte(a) & 0x1f, nil
 	}
 
 	a, size := o.propLoc(m, i)
 	if a == 0 {
 		return 0, errors.New("trying to find next on non-existent property")
 	}
-	return m.memory[a+Address(size)] & 0x1f, nil
+	return m.loadByte(a+Address(size)) & 0x1f, nil
 }
 
 // Property retrieves an object's property i (1-based) from m's memory.  The
@@ -122,9 +122,9 @@ func (m *Machine) loadObject(i Word) *object {
 	if m.Version() <= 3 {
 		base := m.objectTableAddress() + (31 * 2) + Address((i-1)*9)
 		copy(o.Attributes[:4], m.memory[base:])
-		o.Parent = Word(m.memory[base+4])
-		o.Sibling = Word(m.memory[base+5])
-		o.Child = Word(m.memory[base+6])
+		o.Parent = Word(m.loadByte(base + 4))
+		o.Sibling = Word(m.loadByte(base + 5))
+		o.Child = Word(m.loadByte(base + 6))
 		o.PropertyBase = Address(m.loadWord(base + 7))
 	} else {
 		base := m.objectTableAddress() + (63 * 2) + Address((i-1)*14)
@@ -142,9 +142,9 @@ func (m *Machine) storeObject(i Word, o *object) {
 	if m.Version() <= 3 {
 		base := m.objectTableAddress() + (31 * 2) + Address((i-1)*9)
 		copy(m.memory[base:], o.Attributes[:4])
-		m.memory[base+4] = byte(o.Parent)
-		m.memory[base+5] = byte(o.Sibling)
-		m.memory[base+6] = byte(o.Child)
+		m.storeByte(base+4, byte(o.Parent))
+		m.storeByte(base+5, byte(o.Sibling))
+		m.storeByte(base+6, byte(o.Child))
 		m.storeWord(base+7, Word(o.PropertyBase))
 	} else {
 		base := m.objectTableAddress() + (63 * 2) + Address((i-1)*14)

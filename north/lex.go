@@ -12,18 +12,18 @@ type dictionary struct {
 func (m *Machine) dictionary(addr Address) (*dictionary, error) {
 	d := &dictionary{
 		Base:       addr,
-		Separators: make([]rune, m.memory[addr]),
+		Separators: make([]rune, m.loadByte(addr)),
 	}
 	for i := range d.Separators {
 		var err error
-		d.Separators[i], err = zsciiLookup(uint16(m.memory[d.Base+Address(i)+1]), false)
+		d.Separators[i], err = zsciiLookup(uint16(m.loadByte(d.Base+Address(i)+1)), false)
 		if err != nil {
 			return nil, err
 		}
 	}
 	d.Base += 1 + Address(len(d.Separators))
 
-	d.EntrySize = m.memory[d.Base]
+	d.EntrySize = m.loadByte(d.Base)
 	d.Count = m.loadWord(d.Base + 1)
 	if i := int16(d.Count); i < 0 {
 		// XXX: This may not be right for the game dictionary.
@@ -53,21 +53,21 @@ func (m *Machine) dictionary(addr Address) (*dictionary, error) {
 // is left unchanged.
 func (m *Machine) tokenise(input []rune, dict *dictionary, addr Address, storeZero bool) {
 	words := lex(input, dict)
-	maxWords := int(m.memory[addr])
+	maxWords := int(m.loadByte(addr))
 	if len(words) > maxWords {
 		words = words[:maxWords]
 	}
-	m.memory[addr+1] = byte(len(words))
+	m.storeByte(addr+1, byte(len(words)))
 	base := addr + 2
 	version := m.Version()
 	for i := range words {
 		if storeZero || words[i].Word != 0 {
 			m.storeWord(base+Address(i)*4, Word(words[i].Word))
-			m.memory[base+Address(i)*4+2] = byte(words[i].End - words[i].Start)
+			m.storeByte(base+Address(i)*4+2, byte(words[i].End-words[i].Start))
 			if version <= 4 {
-				m.memory[base+Address(i)*4+3] = byte(words[i].Start + 1)
+				m.storeByte(base+Address(i)*4+3, byte(words[i].Start+1))
 			} else {
-				m.memory[base+Address(i)*4+3] = byte(words[i].Start + 2)
+				m.storeByte(base+Address(i)*4+3, byte(words[i].Start+2))
 			}
 		}
 	}

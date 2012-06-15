@@ -693,7 +693,7 @@ func (m *Machine) stepVariableInstruction(in *variableInstruction) error {
 		}
 	case 0x1b:
 		// tokenise
-		var dict dictionary
+		var dict *dictionary
 		var err error
 		if len(ops) > 2 && ops[2] != 0 {
 			dict, err = m.dictionary(Address(ops[2]))

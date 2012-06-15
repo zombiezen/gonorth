@@ -9,13 +9,16 @@ type dictionary struct {
 	WordSize   int
 }
 
-func (m *Machine) dictionary(addr Address) (d dictionary, err error) {
-	d.Base = addr
-	d.Separators = make([]rune, m.memory[d.Base])
+func (m *Machine) dictionary(addr Address) (*dictionary, error) {
+	d := &dictionary{
+		Base:       addr,
+		Separators: make([]rune, m.memory[addr]),
+	}
 	for i := range d.Separators {
+		var err error
 		d.Separators[i], err = zsciiLookup(uint16(m.memory[d.Base+Address(i)+1]), false)
 		if err != nil {
-			return
+			return nil, err
 		}
 	}
 	d.Base += 1 + Address(len(d.Separators))
@@ -35,21 +38,20 @@ func (m *Machine) dictionary(addr Address) (d dictionary, err error) {
 	}
 
 	for i := 0; i < int(d.Count); i++ {
-		var s string
 		a := d.Base + Address(i)*Address(d.EntrySize)
-		s, err = m.loadString(a, false)
+		s, err := m.loadString(a, false)
 		if err != nil {
-			return
+			return nil, err
 		}
 		d.Words[s] = a
 	}
-	return
+	return d, nil
 }
 
 // tokenise performs lexical analysis on input using dict, storing the result at
 // addr. If storeZero is false, then the parse info for any unrecognized words
 // is left unchanged.
-func (m *Machine) tokenise(input []rune, dict dictionary, addr Address, storeZero bool) {
+func (m *Machine) tokenise(input []rune, dict *dictionary, addr Address, storeZero bool) {
 	words := lex(input, dict)
 	maxWords := int(m.memory[addr])
 	if len(words) > maxWords {
@@ -77,7 +79,7 @@ type lexWord struct {
 	Word  Address
 }
 
-func lex(input []rune, dict dictionary) []lexWord {
+func lex(input []rune, dict *dictionary) []lexWord {
 	indices := splitWords(input, dict.Separators)
 	result := make([]lexWord, len(indices))
 	for i := range result {
